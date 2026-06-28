@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
+import { appendMulti } from './http-params.util';
 import {
   AssignRolesRequest,
   AuditEntryRow,
@@ -89,9 +90,9 @@ export class LegalApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${API_BASE_URL}/admin/legal/requests`;
 
-  list(status: string | null, page = 0, size = 20): Observable<Page<LegalRequestSummary>> {
+  list(status: string | string[] | null, page = 0, size = 20): Observable<Page<LegalRequestSummary>> {
     let params = new HttpParams().set('page', page).set('size', size);
-    if (status) { params = params.set('status', status); }
+    params = appendMulti(params, 'status', status);
     return this.http.get<Page<LegalRequestSummary>>(this.base, { params });
   }
 

@@ -18,6 +18,31 @@ export const routes: Routes = [
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardComponent),
       },
       {
+        path: 'users',
+        canActivate: [permissionGuard('USERS:VIEW')],
+        loadComponent: () => import('./features/users/users-list').then((m) => m.UsersListComponent),
+      },
+      {
+        path: 'users/:id',
+        canActivate: [permissionGuard('USERS:VIEW')],
+        loadComponent: () => import('./features/users/user-detail').then((m) => m.UserDetailComponent),
+      },
+      {
+        path: 'content',
+        canActivate: [permissionGuard('CONTENT:VIEW')],
+        loadComponent: () => import('./features/content/content-list').then((m) => m.ContentListComponent),
+      },
+      {
+        path: 'clubs',
+        canActivate: [permissionGuard('CLUBS:VIEW')],
+        loadComponent: () => import('./features/clubs/clubs-list').then((m) => m.ClubsListComponent),
+      },
+      {
+        path: 'clubs/:id',
+        canActivate: [permissionGuard('CLUBS:VIEW')],
+        loadComponent: () => import('./features/clubs/club-detail').then((m) => m.ClubDetailComponent),
+      },
+      {
         path: 'moderation',
         canActivate: [permissionGuard('GRIEVANCES:VIEW')],
         loadComponent: () => import('./features/moderation/moderation-list').then((m) => m.ModerationListComponent),

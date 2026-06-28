@@ -2,16 +2,16 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { InputComponent } from '../../shared/forms';
+import { PageHeaderComponent } from '../../shared/page-header';
 import { MfaApi } from '../../core/admin.api';
 import { MfaStart } from '../../core/models';
 
 @Component({
   selector: 'app-security',
   standalone: true,
-  imports: [FormsModule, InputComponent],
+  imports: [FormsModule, InputComponent, PageHeaderComponent],
   template: `
-    <h1 class="title">Security</h1>
-    <p class="crumb">Your account &amp; two-factor authentication</p>
+    <ui-page-header icon="shield-check" title="Security" subtitle="Your account & two-factor authentication" tint="green" />
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 

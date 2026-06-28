@@ -3,6 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from '../../shared/icon';
 import { InputComponent, MultiSelectComponent, SelectComponent, SelectOption } from '../../shared/forms';
+import { PageHeaderComponent } from '../../shared/page-header';
 import { TableColumn, TableComponent } from '../../shared/table';
 
 import { RolesApi, StaffApi } from '../../core/admin.api';
@@ -17,17 +18,14 @@ const STATUS_OPTIONS: SelectOption[] = [
 @Component({
   selector: 'app-staff',
   standalone: true,
-  imports: [FormsModule, DatePipe, IconComponent, InputComponent, SelectComponent, MultiSelectComponent, TableComponent],
+  imports: [FormsModule, DatePipe, IconComponent, InputComponent, SelectComponent, MultiSelectComponent, TableComponent, PageHeaderComponent],
   template: `
-    <div class="head">
-      <div>
-        <h1 class="title">Staff</h1>
-        <p class="crumb">Admin accounts &amp; role assignment</p>
-      </div>
+    <ui-page-header icon="user-plus" title="Staff" subtitle="Admin accounts & role assignment"
+                    tint="orange" [count]="page()?.totalElements ?? null">
       @if (canAdd()) {
-        <button class="btn primary" (click)="toggleInvite()"><lucide-icon name="user-plus" [size]="15" /> Invite admin</button>
+        <button page-actions class="btn primary" (click)="toggleInvite()"><lucide-icon name="user-plus" [size]="15" /> Invite admin</button>
       }
-    </div>
+    </ui-page-header>
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 

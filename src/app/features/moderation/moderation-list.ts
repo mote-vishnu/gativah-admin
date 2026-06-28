@@ -1,28 +1,33 @@
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import { CheckboxComponent } from '../../shared/forms';
+import { CheckboxComponent, MultiSelectComponent, SelectOption } from '../../shared/forms';
 import { IconComponent } from '../../shared/icon';
+import { PageHeaderComponent } from '../../shared/page-header';
 import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
 import { ModerationApi } from '../../core/moderation.api';
 import { AuthService } from '../../core/auth.service';
 import { Page, ReportSummary, ResolveAction } from '../../core/models';
 
-const STATUSES = ['ALL', 'PENDING', 'REVIEWING', 'RESOLVED', 'DISMISSED'];
+const STATUS_OPTIONS: SelectOption[] = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'REVIEWING', label: 'Reviewing' },
+  { value: 'RESOLVED', label: 'Resolved' },
+  { value: 'DISMISSED', label: 'Dismissed' },
+];
 const OVERDUE_HOURS = 24;
 
 @Component({
   selector: 'app-moderation-list',
   standalone: true,
   template: `
-    <h1 class="title">Grievances</h1>
-    <p class="crumb">Content reports &amp; moderation</p>
+    <ui-page-header icon="flag" title="Grievances" subtitle="Content reports & moderation"
+                    tint="rose" [count]="page()?.totalElements ?? null" />
 
-    <div class="filters">
-      @for (s of statuses; track s) {
-        <span class="chip" [class.on]="status() === s" (click)="setStatus(s)">{{ s | titlecase }}</span>
-      }
+    <div class="filterbar">
+      <ui-multiselect placeholder="All statuses" [options]="statusOptions" [(ngModel)]="statusSel" (ngModelChange)="applyFilter()" />
     </div>
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
@@ -74,6 +79,7 @@ const OVERDUE_HOURS = 24;
   styles: `
     .title { font-family: var(--sans); font-weight: 800; font-size: 22px; margin: 0 0 4px; letter-spacing: -0.02em; }
     .crumb { color: var(--muted-2); font-size: 12px; margin: 0 0 18px; }
+    .filterbar { width: 260px; max-width: 100%; margin-bottom: 18px; }
     .ok { font-size: 11.5px; color: var(--green); background: rgba(74,222,128,0.09); border: 1px solid rgba(74,222,128,0.26); border-radius: 11px; padding: 11px 14px; margin-bottom: 14px; }
     .bulkbar { display: flex; align-items: center; gap: 9px; padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--brand-line); background: var(--brand-soft); border-radius: var(--r-sm); }
     .bulkbar .cnt { font-size: 13px; font-weight: 600; color: var(--brand); }
@@ -84,15 +90,15 @@ const OVERDUE_HOURS = 24;
     .age { font-size: 10.5px; color: var(--muted-2); }
     .age.over { color: var(--rose); font-weight: 600; }
   `,
-  imports: [DatePipe, TitleCasePipe, TableComponent, PaginatorComponent, CheckboxComponent, IconComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, TableComponent, PaginatorComponent, CheckboxComponent, IconComponent, MultiSelectComponent, PageHeaderComponent],
 })
 export class ModerationListComponent implements OnInit {
   private readonly api = inject(ModerationApi);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
 
-  readonly statuses = STATUSES;
-  readonly status = signal('PENDING');
+  readonly statusOptions = STATUS_OPTIONS;
+  statusSel: string[] = ['PENDING'];
   readonly pageIndex = signal(0);
   readonly page = signal<Page<ReportSummary> | null>(null);
   readonly loading = signal(true);
@@ -123,15 +129,13 @@ export class ModerationListComponent implements OnInit {
 
   private load(): void {
     this.loading.set(true);
-    const status = this.status() === 'ALL' ? null : this.status();
-    this.api.reports({ status, page: this.pageIndex(), size: 20 }).subscribe({
+    this.api.reports({ status: this.statusSel, page: this.pageIndex(), size: 20 }).subscribe({
       next: (p) => { this.page.set(p); this.loading.set(false); },
       error: () => { this.error.set('Could not load reports.'); this.loading.set(false); },
     });
   }
 
-  setStatus(s: string): void {
-    this.status.set(s);
+  applyFilter(): void {
     this.pageIndex.set(0);
     this.clear();
     this.load();

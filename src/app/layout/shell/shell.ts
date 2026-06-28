@@ -11,6 +11,9 @@ const COLLAPSE_KEY = 'gativah-admin.nav-collapsed';
 
 const TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
+  users: 'Users',
+  content: 'Content',
+  clubs: 'Clubs',
   moderation: 'Grievances',
   finance: 'Finance',
   staff: 'Staff',
@@ -41,6 +44,12 @@ interface Crumb {
         <div class="group">Operations</div>
         <nav>
           <a routerLink="/dashboard" routerLinkActive="active" title="Dashboard"><lucide-icon name="layout-dashboard" [size]="17" /> <span class="lbl">Dashboard</span></a>
+          @if (auth.can('USERS:VIEW')) {
+            <a routerLink="/users" routerLinkActive="active" title="Users"><lucide-icon name="users" [size]="17" /> <span class="lbl">Users</span></a>
+          }
+          @if (auth.can('CONTENT:VIEW')) {
+            <a routerLink="/content" routerLinkActive="active" title="Content"><lucide-icon name="message-square" [size]="17" /> <span class="lbl">Content</span></a>
+          }
           @if (auth.can('GRIEVANCES:VIEW')) {
             <a routerLink="/moderation" routerLinkActive="active" title="Grievances"><lucide-icon name="flag" [size]="17" /> <span class="lbl">Grievances</span></a>
           }
@@ -56,6 +65,9 @@ interface Crumb {
           }
           @if (auth.can('ROLES:VIEW')) {
             <a routerLink="/roles" routerLinkActive="active" title="Roles &amp; Permissions"><lucide-icon name="shield-check" [size]="17" /> <span class="lbl">Roles &amp; Permissions</span></a>
+          }
+          @if (auth.can('CLUBS:VIEW')) {
+            <a routerLink="/clubs" routerLinkActive="active" title="Clubs"><lucide-icon name="users-round" [size]="17" /> <span class="lbl">Clubs</span></a>
           }
           @if (auth.can('LEGAL:VIEW')) {
             <a routerLink="/legal" routerLinkActive="active" title="Legal &amp; Disclosure"><lucide-icon name="scale" [size]="17" /> <span class="lbl">Legal &amp; Disclosure</span></a>

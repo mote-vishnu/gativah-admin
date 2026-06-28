@@ -4,13 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { IconComponent } from '../../shared/icon';
-import { InputComponent, SelectComponent, SelectOption, TextareaComponent } from '../../shared/forms';
+import { InputComponent, MultiSelectComponent, SelectComponent, SelectOption, TextareaComponent } from '../../shared/forms';
+import { PageHeaderComponent } from '../../shared/page-header';
 import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
 import { LegalApi } from '../../core/admin.api';
 import { AuthService } from '../../core/auth.service';
 import { CreateLegalRequest, LegalRequestSummary, Page } from '../../core/models';
 
-const STATUSES = ['ALL', 'RECEIVED', 'UNDER_REVIEW', 'ACTIONED', 'REJECTED', 'CLOSED'];
+const STATUS_OPTIONS: SelectOption[] = [
+  { value: 'RECEIVED', label: 'Received' },
+  { value: 'UNDER_REVIEW', label: 'Under review' },
+  { value: 'ACTIONED', label: 'Actioned' },
+  { value: 'REJECTED', label: 'Rejected' },
+  { value: 'CLOSED', label: 'Closed' },
+];
 
 const TYPE_OPTIONS: SelectOption[] = [
   { value: 'SUBPOENA', label: 'Subpoena' },
@@ -40,18 +47,15 @@ const EMPTY_DRAFT: Draft = {
   standalone: true,
   imports: [
     FormsModule, DatePipe, TitleCasePipe, IconComponent,
-    InputComponent, SelectComponent, TextareaComponent, TableComponent, PaginatorComponent,
+    InputComponent, SelectComponent, MultiSelectComponent, TextareaComponent, TableComponent, PaginatorComponent, PageHeaderComponent,
   ],
   template: `
-    <div class="head">
-      <div>
-        <h1 class="title">Legal &amp; Disclosure</h1>
-        <p class="crumb">Legal requests &amp; the disclosure ledger</p>
-      </div>
+    <ui-page-header icon="scale" title="Legal & Disclosure" subtitle="Legal requests & the disclosure ledger"
+                    tint="amber" [count]="page()?.totalElements ?? null">
       @if (canEdit()) {
-        <button class="btn primary" (click)="toggleCreate()"><lucide-icon name="plus" [size]="15" /> Log request</button>
+        <button page-actions class="btn primary" (click)="toggleCreate()"><lucide-icon name="plus" [size]="15" /> Log request</button>
       }
-    </div>
+    </ui-page-header>
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
@@ -74,10 +78,8 @@ const EMPTY_DRAFT: Draft = {
       </div>
     }
 
-    <div class="filters">
-      @for (s of statuses; track s) {
-        <span class="chip" [class.on]="status() === s" (click)="setStatus(s)">{{ label(s) }}</span>
-      }
+    <div class="filt">
+      <ui-multiselect placeholder="All statuses" [options]="statusOptions" [(ngModel)]="statusSel" (ngModelChange)="applyFilter()" />
     </div>
 
     <ui-table [columns]="columns" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No legal requests.">
@@ -110,6 +112,7 @@ const EMPTY_DRAFT: Draft = {
     .create { margin-bottom: 18px; }
     .create .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 4px; }
     .actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 16px; }
+    .filt { width: 260px; max-width: 100%; margin-bottom: 18px; }
     .count { font-weight: 700; }
   `,
 })
@@ -118,10 +121,10 @@ export class LegalListComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  readonly statuses = STATUSES;
+  readonly statusOptions = STATUS_OPTIONS;
   readonly typeOptions = TYPE_OPTIONS;
 
-  readonly status = signal('ALL');
+  statusSel: string[] = [];
   readonly pageIndex = signal(0);
   readonly page = signal<Page<LegalRequestSummary> | null>(null);
   readonly loading = signal(true);
@@ -144,14 +147,13 @@ export class LegalListComponent implements OnInit {
 
   private load(): void {
     this.loading.set(true);
-    const status = this.status() === 'ALL' ? null : this.status();
-    this.api.list(status, this.pageIndex(), 20).subscribe({
+    this.api.list(this.statusSel, this.pageIndex(), 20).subscribe({
       next: (p) => { this.page.set(p); this.loading.set(false); },
       error: () => { this.error.set('Could not load legal requests (needs LEGAL:VIEW).'); this.loading.set(false); },
     });
   }
 
-  setStatus(s: string): void { this.status.set(s); this.pageIndex.set(0); this.load(); }
+  applyFilter(): void { this.pageIndex.set(0); this.load(); }
   goTo(i: number): void { this.pageIndex.set(i); this.load(); }
 
   toggleCreate(): void { this.showCreate.update((v) => !v); }

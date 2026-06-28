@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 
+import { PageHeaderComponent } from '../../shared/page-header';
 import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
 import { AuditApi } from '../../core/admin.api';
 import { AuditEntryRow, Page } from '../../core/models';
@@ -8,10 +9,10 @@ import { AuditEntryRow, Page } from '../../core/models';
 @Component({
   selector: 'app-audit',
   standalone: true,
-  imports: [DatePipe, TableComponent, PaginatorComponent],
+  imports: [DatePipe, TableComponent, PaginatorComponent, PageHeaderComponent],
   template: `
-    <h1 class="title">Audit Log</h1>
-    <p class="crumb">Every operator action · append-only</p>
+    <ui-page-header icon="scroll-text" title="Audit Log" subtitle="Every operator action · append-only"
+                    tint="cyan" [count]="page()?.totalElements ?? null" />
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 

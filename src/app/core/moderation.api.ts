@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
+import { appendMulti } from './http-params.util';
 import {
   AssignRequest,
   BulkAssignRequest,
@@ -22,14 +23,14 @@ export class ModerationApi {
   private readonly base = `${API_BASE_URL}/admin`;
 
   reports(opts: {
-    status?: string | null;
+    status?: string | string[] | null;
     contentType?: string | null;
     reason?: string | null;
     page?: number;
     size?: number;
   }): Observable<Page<ReportSummary>> {
     let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 20);
-    if (opts.status) params = params.set('status', opts.status);
+    params = appendMulti(params, 'status', opts.status);
     if (opts.contentType) params = params.set('contentType', opts.contentType);
     if (opts.reason) params = params.set('reason', opts.reason);
     return this.http.get<Page<ReportSummary>>(`${this.base}/reports`, { params });

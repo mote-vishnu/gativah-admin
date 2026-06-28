@@ -75,6 +75,15 @@ import { Component, Input } from '@angular/core';
         @case ('panel-left') {
           <rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 3v18" />
         }
+        @case ('message-square') {
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        }
+        @case ('x') {
+          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+        }
+        @case ('users-round') {
+          <path d="M18 21a8 8 0 0 0-16 0" /><circle cx="10" cy="8" r="5" /><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />
+        }
         @case ('plus') {
           <path d="M5 12h14" /><path d="M12 5v14" />
         }
