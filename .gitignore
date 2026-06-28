@@ -1,0 +1,39 @@
+# Compiled output
+/dist
+/out-tsc
+/tmp
+/bazel-out
+
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/*
+!.vscode/extensions.json
+.history/*
+
+# Angular / build cache
+.angular/cache
+.sass-cache/
+connect.lock
+/coverage
+testem.log
+/typings
+
+# System
+.DS_Store
+Thumbs.db
+
+# Local env / secrets
+.env
+.env.local
+src/environments/environment.local.ts
