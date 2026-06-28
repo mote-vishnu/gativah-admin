@@ -4,6 +4,10 @@ import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
 import {
+  AssignRequest,
+  BulkAssignRequest,
+  BulkResolveRequest,
+  BulkResolveResponse,
   ModerationActionRow,
   Page,
   ReportDetail,
@@ -37,6 +41,18 @@ export class ModerationApi {
 
   resolve(id: number, req: ResolveRequest): Observable<ResolveResponse> {
     return this.http.post<ResolveResponse>(`${this.base}/reports/${id}/resolve`, req);
+  }
+
+  bulkResolve(req: BulkResolveRequest): Observable<BulkResolveResponse> {
+    return this.http.post<BulkResolveResponse>(`${this.base}/reports/bulk-resolve`, req);
+  }
+
+  assign(id: number, req: AssignRequest): Observable<void> {
+    return this.http.patch<void>(`${this.base}/reports/${id}/assign`, req);
+  }
+
+  bulkAssign(req: BulkAssignRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/reports/bulk-assign`, req);
   }
 
   history(page = 0, size = 20): Observable<Page<ModerationActionRow>> {

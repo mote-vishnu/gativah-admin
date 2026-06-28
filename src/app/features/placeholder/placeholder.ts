@@ -11,7 +11,7 @@ import { ActivatedRoute } from '@angular/router';
     </div>
   `,
   styles: `
-    .title { font-family: var(--disp); font-size: 22px; margin: 0 0 18px; letter-spacing: -0.02em; }
+    .title { font-family: var(--sans); font-weight: 800; font-size: 22px; margin: 0 0 18px; letter-spacing: -0.02em; }
   `,
 })
 export class PlaceholderComponent {

@@ -1,0 +1,38 @@
+/* Tailwind v4 entry — utilities only (no preflight reset, so existing component
+   styles are untouched; this is purely additive). Tailwind's color scale is mapped
+   to our ember/Sandow CSS variables (defined in styles.scss) via @theme inline, so
+   utilities like bg-surface / text-brand / border-line stay on-brand AND follow the
+   dark/light theme automatically. */
+
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-3: var(--brand-3);
+
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
+
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+
+  --color-green: var(--green);
+  --color-rose: var(--rose);
+  --color-amber: var(--amber);
+  --color-violet: var(--violet);
+  --color-cyan: var(--cyan);
+
+  --radius-sm: var(--r-sm);
+  --radius-lg: var(--r);
+}

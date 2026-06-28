@@ -1,6 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { IconComponent } from '../../shared/icon';
+import { InputComponent } from '../../shared/forms';
 
 import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
@@ -8,27 +10,25 @@ import { ThemeService } from '../../core/theme.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent, InputComponent],
   template: `
     <div class="wrap">
       <div class="card login">
         <div class="top">
           <div class="logo"><span class="mark">G</span><span class="name">Gativah<small>Platform Admin</small></span></div>
-          <button class="btn" (click)="theme.toggle()">{{ theme.theme() === 'dark' ? '☾' : '☀' }}</button>
+          <button class="btn icon" (click)="theme.toggle()"><lucide-icon [name]="theme.theme() === 'dark' ? 'moon' : 'sun'" [size]="16" /></button>
         </div>
 
         @if (step() === 'creds') {
           <h2>Operator sign-in</h2>
           <p class="muted">Restricted to authorized staff. Every action is audited.</p>
-          <label class="field">Work email</label>
-          <input class="input" type="email" [(ngModel)]="email" (keyup.enter)="submit()" />
-          <label class="field">Password</label>
-          <input class="input" type="password" [(ngModel)]="password" (keyup.enter)="submit()" />
+          <ui-input label="Work email" type="email" autocomplete="username" [(ngModel)]="email" (enter)="submit()" />
+          <ui-input label="Password" type="password" autocomplete="current-password" [(ngModel)]="password" (enter)="submit()" />
           <button class="btn primary full" (click)="submit()" [disabled]="loading()">Continue</button>
         } @else {
           <h2>Two-factor</h2>
           <p class="muted">Enter the 6-digit code from your authenticator app.</p>
-          <input class="input code" [(ngModel)]="code" maxlength="6" (keyup.enter)="verify()" />
+          <ui-input class="code" inputmode="numeric" [maxlength]="6" [(ngModel)]="code" (enter)="verify()" />
           <button class="btn primary full" (click)="verify()" [disabled]="loading()">Verify &amp; enter</button>
           <button class="btn full ghost" (click)="back()">Back</button>
         }
@@ -43,14 +43,13 @@ import { ThemeService } from '../../core/theme.service';
     .login { width: 400px; max-width: 100%; }
     .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .logo { display: flex; align-items: center; gap: 11px; }
-    .mark { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, var(--brand), var(--brand-3)); display: grid; place-items: center; font-family: var(--disp); font-weight: 800; color: #fff; font-size: 19px; }
-    .name { font-family: var(--disp); font-weight: 700; font-size: 18px; line-height: 1; }
+    .mark { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, var(--brand), var(--brand-3)); display: grid; place-items: center; font-family: var(--sans); font-weight: 800; color: #fff; font-size: 19px; }
+    .name { font-family: var(--sans); font-weight: 700; font-size: 18px; line-height: 1; }
     .name small { display: block; font-family: var(--mono); font-size: 9px; color: var(--muted-2); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
-    h2 { font-family: var(--disp); font-size: 24px; margin: 0 0 6px; }
+    h2 { font-family: var(--sans); font-weight: 800; font-size: 24px; margin: 0 0 6px; letter-spacing: -0.02em; }
     p { margin: 0 0 18px; font-size: 13px; }
     .full { width: 100%; margin-top: 22px; }
     .ghost { margin-top: 10px; background: transparent; }
-    .code { font-family: var(--mono); font-size: 22px; text-align: center; letter-spacing: 0.3em; }
     .err { margin-top: 16px; color: var(--rose); font-size: 13px; background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.3); border-radius: 10px; padding: 10px 13px; }
     .foot { margin-top: 22px; font-size: 11px; color: var(--muted-2); text-align: center; }
   `,

@@ -16,7 +16,8 @@
   --r-sm: 11px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --disp: "Bricolage Grotesque", "Inter", sans-serif;
+  /* Display now unified on Inter (Bricolage dropped for an even, dashboard look). */
+  --disp: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -80,6 +81,11 @@ body {
   font-family: var(--sans);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Don't fake-bold/italicise a weight that isn't loaded — that's a common
+     source of "uneven" looking text. */
+  font-synthesis: none;
 }
 a { color: inherit; text-decoration: none; }
 .mono { font-family: var(--mono); }
@@ -94,7 +100,7 @@ a { color: inherit; text-decoration: none; }
   box-shadow: var(--shadow);
 }
 .card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 10px; }
-.card-h h3 { font-family: var(--disp); font-size: 15px; margin: 0; letter-spacing: -0.01em; }
+.card-h h3 { font-family: var(--sans); font-weight: 700; font-size: 15px; margin: 0; letter-spacing: -0.01em; }
 .hint { font-size: 11.5px; color: var(--muted-2); }
 
 /* grid */
@@ -110,7 +116,7 @@ a { color: inherit; text-decoration: none; }
 /* kpi */
 .kpi .lab { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; font-weight: 500; }
 .kpi .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; box-shadow: var(--shadow-sm); }
-.kpi .val { font-family: var(--disp); font-size: 30px; font-weight: 700; margin: 13px 0 6px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+.kpi .val { font-family: var(--sans); font-size: 30px; font-weight: 700; margin: 13px 0 6px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
 .kpi .delta { font-size: 12px; font-weight: 600; }
 .tint-orange { background: var(--brand-soft); color: var(--brand); }
 .tint-cyan { background: rgba(34, 211, 238, 0.13); color: var(--cyan); }

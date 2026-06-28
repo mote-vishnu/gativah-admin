@@ -12,8 +12,8 @@ export interface AdminMe {
   id: number;
   email: string;
   name: string;
-  role: string;
-  authorities: string[];
+  roles: string[];
+  permissions: string[];
 }
 
 export interface AuthResponse {
@@ -36,6 +36,7 @@ export interface ReportSummary {
   authorUserId: number;
   authorUsername: string;
   snippet: string;
+  assigneeAdminId: number | null;
 }
 
 export interface ReportDetail extends ReportSummary {
@@ -57,6 +58,27 @@ export interface ResolveResponse {
   ok: boolean;
   status: string;
   message: string;
+}
+
+export interface BulkResolveRequest {
+  ids: number[];
+  action: ResolveAction;
+  reason?: string;
+}
+
+export interface BulkResolveResponse {
+  resolved: number;
+  failed: number;
+  failedIds: number[];
+}
+
+export interface AssignRequest {
+  adminId: number | null;
+}
+
+export interface BulkAssignRequest {
+  ids: number[];
+  adminId: number | null;
 }
 
 export interface ModerationActionRow {
@@ -133,4 +155,153 @@ export interface WebhookHealth {
   deadLetter: number;
   lastProcessedAt: string | null;
   recentDeadLetters: DeadLetterRow[];
+}
+
+// ── Audit ─────────────────────────────────────────────────────
+export interface AuditEntryRow {
+  id: number;
+  adminUserId: number;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  summary: string | null;
+  ip: string | null;
+  createdAt: string;
+}
+
+// ── Staff ─────────────────────────────────────────────────────
+export interface StaffRow {
+  id: number;
+  email: string;
+  name: string;
+  roles: string[];
+  status: string;
+  mfaEnrolled: boolean;
+  lastLoginAt: string | null;
+  createdAt: string | null;
+}
+
+export interface InviteStaffRequest {
+  email: string;
+  name: string;
+  roleIds: number[];
+  password: string;
+}
+
+export interface UpdateStaffRequest {
+  status?: string;
+}
+
+export interface AssignRolesRequest {
+  roleIds: number[];
+}
+
+// ── Roles & Permissions ───────────────────────────────────────
+export interface RoleResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  system: boolean;
+  permissionIds: number[];
+  permissions: string[];
+  userCount: number;
+}
+
+export interface RolesResponse {
+  roles: RoleResponse[];
+}
+
+export interface PermissionResponse {
+  id: number;
+  code: string;
+  action: string;
+  featureCode: string;
+}
+
+export interface FeaturePermissions {
+  featureCode: string;
+  label: string;
+  sortOrder: number;
+  permissions: PermissionResponse[];
+}
+
+export interface PermissionCatalogResponse {
+  features: FeaturePermissions[];
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description: string | null;
+  permissionIds: number[];
+}
+
+export interface UpdateRoleRequest {
+  name?: string;
+  description?: string | null;
+  permissionIds?: number[];
+}
+
+// ── Legal & Disclosure ────────────────────────────────────────
+export type LegalStatus = 'RECEIVED' | 'UNDER_REVIEW' | 'ACTIONED' | 'REJECTED' | 'CLOSED';
+
+export interface LegalRequestSummary {
+  id: number;
+  reference: string;
+  requestType: string;
+  requestingAuthority: string;
+  subjectUserId: number | null;
+  status: LegalStatus;
+  receivedAt: string;
+  dueAt: string | null;
+  disclosureCount: number;
+}
+
+export interface DisclosureRow {
+  id: number;
+  disclosedBy: number;
+  recipient: string;
+  dataCategories: string;
+  justification: string;
+  disclosedAt: string;
+}
+
+export interface LegalRequestDetail extends LegalRequestSummary {
+  scope: string | null;
+  notes: string | null;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+  disclosures: DisclosureRow[];
+}
+
+export interface CreateLegalRequest {
+  reference: string;
+  requestType: string;
+  requestingAuthority: string;
+  subjectUserId: number | null;
+  scope: string | null;
+  dueAt: string | null;
+  notes: string | null;
+}
+
+export interface UpdateLegalRequest {
+  status?: LegalStatus;
+  notes?: string | null;
+}
+
+export interface RecordDisclosureRequest {
+  recipient: string;
+  dataCategories: string;
+  justification: string;
+}
+
+// ── MFA ───────────────────────────────────────────────────────
+export interface MfaStatus {
+  enrolled: boolean;
+}
+
+export interface MfaStart {
+  secret: string;
+  otpauthUri: string;
+  alreadyEnrolled: boolean;
 }

@@ -44,8 +44,9 @@ export class AuthService {
     }
   }
 
-  hasAuthority(authority: string): boolean {
-    return this.me()?.authorities?.includes(authority) ?? false;
+  /** True when the signed-in admin holds the given `FEATURE:ACTION` permission. */
+  can(code: string): boolean {
+    return this.me()?.permissions?.includes(code) ?? false;
   }
 
   logout(): void {

@@ -9,3 +9,10 @@ export const authGuard: CanActivateFn = () => {
   const router = inject(Router);
   return auth.isAuthenticated() ? true : router.parseUrl('/login');
 };
+
+/** Gates a feature route on a `FEATURE:ACTION` permission; redirects to /forbidden otherwise. */
+export const permissionGuard = (code: string): CanActivateFn => () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.can(code) ? true : router.parseUrl('/forbidden');
+};

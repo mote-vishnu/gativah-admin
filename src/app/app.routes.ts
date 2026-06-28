@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard } from './core/auth.guard';
+import { authGuard, permissionGuard } from './core/auth.guard';
 
 export const routes: Routes = [
   {
@@ -19,25 +19,50 @@ export const routes: Routes = [
       },
       {
         path: 'moderation',
+        canActivate: [permissionGuard('GRIEVANCES:VIEW')],
         loadComponent: () => import('./features/moderation/moderation-list').then((m) => m.ModerationListComponent),
       },
       {
         path: 'moderation/:id',
+        canActivate: [permissionGuard('GRIEVANCES:VIEW')],
         loadComponent: () => import('./features/moderation/report-detail').then((m) => m.ReportDetailComponent),
       },
       {
         path: 'finance',
+        canActivate: [permissionGuard('FINANCE:VIEW')],
         loadComponent: () => import('./features/finance/finance').then((m) => m.FinanceComponent),
       },
       {
         path: 'staff',
-        loadComponent: () => import('./features/placeholder/placeholder').then((m) => m.PlaceholderComponent),
-        data: { title: 'Staff & Roles', note: 'Staff management endpoints land in Phase 2.' },
+        canActivate: [permissionGuard('STAFF:VIEW')],
+        loadComponent: () => import('./features/staff/staff').then((m) => m.StaffComponent),
+      },
+      {
+        path: 'roles',
+        canActivate: [permissionGuard('ROLES:VIEW')],
+        loadComponent: () => import('./features/roles/roles').then((m) => m.RolesComponent),
+      },
+      {
+        path: 'legal',
+        canActivate: [permissionGuard('LEGAL:VIEW')],
+        loadComponent: () => import('./features/legal/legal-list').then((m) => m.LegalListComponent),
+      },
+      {
+        path: 'legal/:id',
+        canActivate: [permissionGuard('LEGAL:VIEW')],
+        loadComponent: () => import('./features/legal/legal-detail').then((m) => m.LegalDetailComponent),
       },
       {
         path: 'audit',
-        loadComponent: () => import('./features/placeholder/placeholder').then((m) => m.PlaceholderComponent),
-        data: { title: 'Audit Log', note: 'The audit-log read endpoint is a Phase 2 addition.' },
+        loadComponent: () => import('./features/audit/audit').then((m) => m.AuditComponent),
+      },
+      {
+        path: 'security',
+        loadComponent: () => import('./features/security/security').then((m) => m.SecurityComponent),
+      },
+      {
+        path: 'forbidden',
+        loadComponent: () => import('./features/forbidden/forbidden').then((m) => m.ForbiddenComponent),
       },
     ],
   },
