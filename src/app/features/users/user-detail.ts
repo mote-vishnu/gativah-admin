@@ -4,16 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
+import { ChartComponent } from '../../shared/chart';
 import { InputComponent, TextareaComponent } from '../../shared/forms';
 import { TableColumn, TableComponent } from '../../shared/table';
 import { UsersApi } from '../../core/users.api';
 import { AuthService } from '../../core/auth.service';
-import { UserDetail } from '../../core/models';
+import { AdminDirectoryService } from '../../core/admin-directory.service';
+import { AuditEntryRow, UserDetail, UserInsights } from '../../core/models';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
+import { ToastService } from '../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-user-detail',
   standalone: true,
-  imports: [FormsModule, DatePipe, TitleCasePipe, RouterLink, InputComponent, TextareaComponent, TableComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, RouterLink, InputComponent, TextareaComponent, TableComponent, ChartComponent],
   template: `
     <a routerLink="/users" class="back">‹ Back to users</a>
 
@@ -31,6 +35,12 @@ import { UserDetail } from '../../core/models';
         <span class="pill" [class]="statusClass(u.accountStatus)">{{ u.accountStatus | titlecase }}</span>
       </div>
 
+      <div class="subtabs" style="margin-bottom:18px">
+        <button [class.on]="tab() === 'overview'" (click)="tab.set('overview')">Overview</button>
+        <button [class.on]="tab() === 'audit'" (click)="showAudit()">Audit trail</button>
+      </div>
+
+      @if (tab() === 'overview') {
       <div class="grid">
         <div>
           <div class="card">
@@ -60,6 +70,27 @@ import { UserDetail } from '../../core/models';
           </div>
 
           <div class="card" style="margin-top:18px">
+            <div class="card-h"><h3>Activity</h3><span class="hint">last 90 days</span></div>
+            @if ((insights()?.activity?.length ?? 0) > 0) {
+              <ui-chart type="area" [series]="activitySeries()" [categories]="activityCats()" [colors]="['--cyan']" [height]="200" />
+            } @else { <div class="empty">No recent activity.</div> }
+          </div>
+
+          <div class="card" style="margin-top:18px">
+            <div class="card-h"><h3>Devices &amp; sessions</h3><span class="hint">{{ insights()?.devices?.length ?? 0 }}</span></div>
+            <ui-table [columns]="deviceCols" [flush]="true" [empty]="(insights()?.devices?.length ?? 0) === 0" emptyText="No devices.">
+              @for (d of insights()?.devices ?? []; track $index) {
+                <tr>
+                  <td>{{ d.platform }}</td>
+                  <td class="muted">{{ d.appVersion || '—' }}</td>
+                  <td class="muted">{{ d.locale || '—' }}</td>
+                  <td class="muted">{{ d.lastSeenAt ? (d.lastSeenAt | date: 'MMM d, y') : '—' }}</td>
+                </tr>
+              }
+            </ui-table>
+          </div>
+
+          <div class="card" style="margin-top:18px">
             <div class="card-h"><h3>Sanction history</h3><span class="hint">{{ u.sanctions.length }} record(s)</span></div>
             <ui-table [columns]="sanctionCols" [flush]="true" [empty]="u.sanctions.length === 0" emptyText="No sanctions.">
               @for (s of u.sanctions; track s.id) {
@@ -76,6 +107,17 @@ import { UserDetail } from '../../core/models';
         </div>
 
         <div>
+          @if (insights(); as ins) {
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-h"><h3>Risk</h3><span class="pill" [class]="riskClass(ins.riskLevel)">{{ ins.riskLevel | titlecase }}</span></div>
+              <div class="riskbar"><span [class]="riskClass(ins.riskLevel)" [style.width.%]="ins.riskScore"></span></div>
+              <div class="meta" style="margin-top:12px">
+                <div><span>Score</span><b>{{ ins.riskScore }}/100</b></div>
+                <div><span>Reports against</span><b>{{ ins.reportsAgainst }}</b></div>
+                <div><span>Sanctions</span><b>{{ ins.sanctionCount }}</b></div>
+              </div>
+            </div>
+          }
           @if (canEdit()) {
             <div class="card">
               <div class="card-h"><h3>Actions</h3></div>
@@ -87,6 +129,7 @@ import { UserDetail } from '../../core/models';
                 @if (u.accountStatus !== 'ACTIVE') {
                   <button class="btn" (click)="reinstate()" [disabled]="busy()">Reinstate</button>
                 }
+                <button class="btn" (click)="toggleVerified(u)" [disabled]="busy()">{{ u.verified ? 'Remove verified badge' : 'Grant verified badge' }}</button>
               </div>
               <div class="note" style="margin-top:14px">⚠ Actions run via the internal hook on pacegrit-service and are written to the audit log.</div>
             </div>
@@ -95,6 +138,30 @@ import { UserDetail } from '../../core/models';
           }
         </div>
       </div>
+      }
+
+      @if (tab() === 'audit') {
+        <div class="card">
+          <div class="card-h"><h3>Audit trail</h3><span class="hint">admin actions taken against this account</span></div>
+          @if (auditLoading()) {
+            <div class="empty">Loading…</div>
+          } @else if (audit().length) {
+            <div class="timeline" style="margin-top:6px">
+              @for (a of audit(); track a.id) {
+                <div class="tl">
+                  <div class="when">{{ a.createdAt | date: 'MMM d, y, HH:mm' }} · {{ dir.name(a.adminUserId) }}@if (a.ip) { · {{ a.ip }} }</div>
+                  <div class="what" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                    <span class="pill" [class]="auditClass(a.action)">{{ prettyAction(a.action) }}</span>
+                    <span class="muted">{{ a.summary || '—' }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="empty">No admin actions recorded for this account.</div>
+          }
+        </div>
+      }
     }
   `,
   styles: `
@@ -112,14 +179,28 @@ import { UserDetail } from '../../core/models';
     .meta > div:last-child { border-bottom: 0; }
     .meta > div span { color: var(--muted-2); }
     .acts { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+    .riskbar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+    .riskbar span { display: block; height: 100%; border-radius: 999px; }
+    .riskbar span.active { background: var(--green); }
+    .riskbar span.pending { background: var(--amber); }
+    .riskbar span.banned { background: var(--rose); }
   `,
 })
 export class UserDetailComponent implements OnInit {
   private readonly api = inject(UsersApi);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
+  private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+  readonly dir = inject(AdminDirectoryService);
+
+  readonly tab = signal<'overview' | 'audit'>('overview');
+  readonly audit = signal<AuditEntryRow[]>([]);
+  readonly auditLoading = signal(false);
+  private auditLoaded = false;
 
   readonly user = signal<UserDetail | null>(null);
+  readonly insights = signal<UserInsights | null>(null);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -128,43 +209,92 @@ export class UserDetailComponent implements OnInit {
   readonly sanctionCols: TableColumn[] = [
     { label: 'Type' }, { label: 'Reason' }, { label: 'Until' }, { label: 'By' }, { label: 'When' },
   ];
+  readonly deviceCols: TableColumn[] = [
+    { label: 'Platform' }, { label: 'App' }, { label: 'Locale' }, { label: 'Last seen' },
+  ];
+  readonly activitySeries = computed(() => [{ name: 'Steps', data: (this.insights()?.activity ?? []).map((a) => a.steps) }]);
+  readonly activityCats = computed(() => (this.insights()?.activity ?? []).map((a) => a.date));
 
   reason = '';
   days: string | number = '';
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
+    this.dir.load();
     this.api.detail(id).subscribe({
       next: (u) => this.user.set(u),
       error: () => this.error.set('Could not load this user.'),
     });
+    this.api.insights(id).subscribe({ next: (ins) => this.insights.set(ins), error: () => {} });
+  }
+
+  showAudit(): void {
+    this.tab.set('audit');
+    if (this.auditLoaded) { return; }
+    this.auditLoaded = true;
+    this.auditLoading.set(true);
+    const id = Number(this.route.snapshot.paramMap.get('id'));
+    this.api.audit(id, 0, 50).subscribe({
+      next: (p) => { this.audit.set(p.content); this.auditLoading.set(false); },
+      error: () => { this.auditLoading.set(false); },
+    });
+  }
+
+  prettyAction(a: string): string {
+    return a.replace(/^USER_/, '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  auditClass(a: string): string {
+    if (a.includes('BAN')) { return 'banned'; }
+    if (a.includes('SUSPEND')) { return 'pending'; }
+    if (a.includes('REINSTATE') || a.includes('VERIFY')) { return 'active'; }
+    if (a.includes('UNVERIFY')) { return 'dismissed'; }
+    return 'reason';
+  }
+
+  toggleVerified(u: UserDetail): void {
+    this.run(this.api.setVerified(u.id, !u.verified), u.verified ? 'Verified badge removed.' : 'Verified badge granted.');
+  }
+
+  riskClass(level: string): string {
+    switch (level) {
+      case 'HIGH': return 'banned';
+      case 'MEDIUM': return 'pending';
+      default: return 'active';
+    }
   }
 
   suspend(): void {
     const u = this.user();
     if (!u) { return; }
-    this.run(this.api.suspend(u.id, { reason: this.reason.trim(), days: this.days ? Number(this.days) : null }));
+    this.run(this.api.suspend(u.id, { reason: this.reason.trim(), days: this.days ? Number(this.days) : null }), 'User suspended.');
   }
 
-  ban(): void {
+  async ban(): Promise<void> {
     const u = this.user();
     if (!u) { return; }
-    if (!confirm(`Ban @${u.username}? They will lose access immediately.`)) { return; }
-    this.run(this.api.ban(u.id, { reason: this.reason.trim() }));
+    const res = await this.confirm.confirm({
+      title: `Ban @${u.username}?`,
+      message: 'They lose access immediately. Capture a reason for the audit log.',
+      confirmLabel: 'Ban user',
+      tone: 'danger',
+      input: { label: 'Reason', placeholder: 'Why is this account being banned?', required: true, multiline: true },
+    });
+    if (!res.confirmed) { return; }
+    this.run(this.api.ban(u.id, { reason: (res.value || this.reason).trim() }), 'User banned.');
   }
 
   reinstate(): void {
     const u = this.user();
     if (!u) { return; }
-    this.run(this.api.reinstate(u.id));
+    this.run(this.api.reinstate(u.id), 'User reinstated.');
   }
 
-  private run(obs: Observable<UserDetail>): void {
+  private run(obs: Observable<UserDetail>, okMsg = 'Done.'): void {
     this.busy.set(true);
-    this.error.set(null);
     obs.subscribe({
-      next: (u) => { this.busy.set(false); this.user.set(u); this.reason = ''; this.days = ''; },
-      error: () => { this.busy.set(false); this.error.set('Action failed — check the admin API / internal hook.'); },
+      next: (u) => { this.busy.set(false); this.user.set(u); this.reason = ''; this.days = ''; this.toast.success(okMsg); },
+      error: () => { this.busy.set(false); this.toast.error('Action failed — check the admin API / internal hook.'); },
     });
   }
 

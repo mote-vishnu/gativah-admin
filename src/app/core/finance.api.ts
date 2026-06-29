@@ -21,21 +21,27 @@ export class FinanceApi {
     return this.http.get<FinanceOverview>(`${this.base}/overview`);
   }
 
-  revenue(granularity = 'month', groupBy?: string | null): Observable<FinanceRevenueResponse> {
+  revenue(granularity = 'month', groupBy?: string | null, from?: string | null, to?: string | null): Observable<FinanceRevenueResponse> {
     let params = new HttpParams().set('granularity', granularity);
     if (groupBy) params = params.set('groupBy', groupBy);
+    if (from) params = params.set('from', from);
+    if (to) params = params.set('to', to);
     return this.http.get<FinanceRevenueResponse>(`${this.base}/revenue`, { params });
   }
 
-  transactions(opts: { type?: string | null; page?: number; size?: number }): Observable<Page<TransactionRow>> {
+  transactions(opts: { type?: string | null; platform?: string | null; country?: string | null; sort?: string | null; page?: number; size?: number }): Observable<Page<TransactionRow>> {
     let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 20);
     if (opts.type) params = params.set('type', opts.type);
+    if (opts.platform) params = params.set('platform', opts.platform);
+    if (opts.country) params = params.set('country', opts.country);
+    if (opts.sort) params = params.set('sort', opts.sort);
     return this.http.get<Page<TransactionRow>>(`${this.base}/transactions`, { params });
   }
 
-  subscriptions(state?: string | null, page = 0, size = 20): Observable<Page<SubscriptionRow>> {
-    let params = new HttpParams().set('page', page).set('size', size);
-    if (state) params = params.set('state', state);
+  subscriptions(opts: { state?: string | null; sort?: string | null; page?: number; size?: number }): Observable<Page<SubscriptionRow>> {
+    let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 20);
+    if (opts.state) params = params.set('state', opts.state);
+    if (opts.sort) params = params.set('sort', opts.sort);
     return this.http.get<Page<SubscriptionRow>>(`${this.base}/subscriptions`, { params });
   }
 

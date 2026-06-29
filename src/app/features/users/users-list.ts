@@ -4,9 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { InputComponent, MultiSelectComponent, SelectOption } from '../../shared/forms';
+import { IconComponent } from '../../shared/icon';
 import { PageHeaderComponent } from '../../shared/page-header';
-import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
+import { PaginatorComponent, SortState, TableColumn, TableComponent } from '../../shared/table';
 import { UsersApi } from '../../core/users.api';
+import { ExportService } from '../../core/export.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { Page, UserSummary } from '../../core/models';
 
 const STATUS_OPTIONS: SelectOption[] = [
@@ -18,10 +21,14 @@ const STATUS_OPTIONS: SelectOption[] = [
 @Component({
   selector: 'app-users-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, TitleCasePipe, InputComponent, MultiSelectComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, InputComponent, MultiSelectComponent, IconComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
   template: `
     <ui-page-header icon="users" title="Users" subtitle="Member directory & account actions"
-                    tint="cyan" [count]="page()?.totalElements ?? null" />
+                    tint="cyan" [count]="page()?.totalElements ?? null">
+      <button page-actions class="btn" (click)="exportCsv()" [disabled]="(page()?.content?.length ?? 0) === 0">
+        <lucide-icon name="download" [size]="15" /> Export
+      </button>
+    </ui-page-header>
 
     <div class="toolbar">
       <div class="search"><ui-input placeholder="Search username or email…" [(ngModel)]="q" (enter)="search()" /></div>
@@ -32,7 +39,8 @@ const STATUS_OPTIONS: SelectOption[] = [
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
-    <ui-table [columns]="columns" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No users found.">
+    <ui-table [columns]="columns" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No users found."
+              [sort]="sort()" (sortChange)="onSort($event)">
       @for (u of page()?.content ?? []; track u.id) {
         <tr class="clickable" (click)="open(u)">
           <td>
@@ -72,6 +80,8 @@ const STATUS_OPTIONS: SelectOption[] = [
 export class UsersListComponent implements OnInit {
   private readonly api = inject(UsersApi);
   private readonly router = inject(Router);
+  private readonly exporter = inject(ExportService);
+  private readonly toast = inject(ToastService);
 
   readonly statusOptions = STATUS_OPTIONS;
   statusSel: string[] = [];
@@ -79,11 +89,12 @@ export class UsersListComponent implements OnInit {
   readonly page = signal<Page<UserSummary> | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly sort = signal<SortState | null>(null);
   q = '';
 
   readonly columns: TableColumn[] = [
-    { label: 'User' }, { label: 'Email' }, { label: 'Status' },
-    { label: 'Subscription' }, { label: 'Verified' }, { label: 'Joined' },
+    { label: 'User', sortKey: 'username' }, { label: 'Email', sortKey: 'email' }, { label: 'Status', sortKey: 'status' },
+    { label: 'Subscription' }, { label: 'Verified', sortKey: 'verified' }, { label: 'Joined', sortKey: 'createdAt' },
   ];
 
   ngOnInit(): void {
@@ -92,7 +103,14 @@ export class UsersListComponent implements OnInit {
 
   private load(): void {
     this.loading.set(true);
-    this.api.list({ q: this.q.trim() || null, status: this.statusSel, page: this.pageIndex(), size: 20 }).subscribe({
+    const s = this.sort();
+    this.api.list({
+      q: this.q.trim() || null,
+      status: this.statusSel,
+      sort: s ? `${s.key},${s.dir}` : null,
+      page: this.pageIndex(),
+      size: 20,
+    }).subscribe({
       next: (p) => { this.page.set(p); this.loading.set(false); },
       error: () => { this.error.set('Could not load users (needs USERS:VIEW).'); this.loading.set(false); },
     });
@@ -101,6 +119,21 @@ export class UsersListComponent implements OnInit {
   search(): void { this.pageIndex.set(0); this.load(); }
   applyFilter(): void { this.pageIndex.set(0); this.load(); }
   goTo(i: number): void { this.pageIndex.set(i); this.load(); }
+  onSort(s: SortState): void { this.sort.set(s); this.pageIndex.set(0); this.load(); }
+
+  exportCsv(): void {
+    const rows = (this.page()?.content ?? []).map((u) => ({
+      id: u.id, username: u.username, fullName: u.fullName ?? '', email: u.email,
+      status: u.accountStatus, subscription: u.subscriptionState ?? '', verified: u.verified ? 'yes' : 'no', joined: u.createdAt,
+    }));
+    if (!rows.length) { return; }
+    this.exporter.download('users', [
+      { key: 'id', label: 'ID' }, { key: 'username', label: 'Username' }, { key: 'fullName', label: 'Name' },
+      { key: 'email', label: 'Email' }, { key: 'status', label: 'Status' }, { key: 'subscription', label: 'Subscription' },
+      { key: 'verified', label: 'Verified' }, { key: 'joined', label: 'Joined' },
+    ], rows);
+    this.toast.info(`Exported ${rows.length} user(s).`);
+  }
 
   open(u: UserSummary): void { void this.router.navigate(['/users', u.id]); }
 

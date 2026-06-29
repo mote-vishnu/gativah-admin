@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
 import { appendMulti } from './http-params.util';
-import { ContentRow, Page, TakedownContentRequest } from './models';
+import { ContentRow, Page, StoryRow, TakedownContentRequest } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ContentApi {
@@ -17,6 +17,12 @@ export class ContentApi {
     if (opts.q) { params = params.set('q', opts.q); }
     params = appendMulti(params, 'status', opts.status);
     return this.http.get<Page<ContentRow>>(this.base, { params });
+  }
+
+  stories(opts: { q?: string | null; page?: number; size?: number }): Observable<Page<StoryRow>> {
+    let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 20);
+    if (opts.q) { params = params.set('q', opts.q); }
+    return this.http.get<Page<StoryRow>>(`${this.base}/stories`, { params });
   }
 
   takedown(type: string, id: number, req: TakedownContentRequest): Observable<void> {

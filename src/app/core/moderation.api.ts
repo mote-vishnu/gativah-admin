@@ -5,12 +5,17 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './environment';
 import { appendMulti } from './http-params.util';
 import {
+  AppealResolveRequest,
+  AppealRow,
   AssignRequest,
+  AuthorHistory,
+  AutoFlagSignal,
   BulkAssignRequest,
   BulkResolveRequest,
   BulkResolveResponse,
   ModerationActionRow,
   Page,
+  ReasonCount,
   ReportDetail,
   ReportSummary,
   ResolveRequest,
@@ -26,6 +31,7 @@ export class ModerationApi {
     status?: string | string[] | null;
     contentType?: string | null;
     reason?: string | null;
+    sort?: string | null;
     page?: number;
     size?: number;
   }): Observable<Page<ReportSummary>> {
@@ -33,6 +39,7 @@ export class ModerationApi {
     params = appendMulti(params, 'status', opts.status);
     if (opts.contentType) params = params.set('contentType', opts.contentType);
     if (opts.reason) params = params.set('reason', opts.reason);
+    if (opts.sort) params = params.set('sort', opts.sort);
     return this.http.get<Page<ReportSummary>>(`${this.base}/reports`, { params });
   }
 
@@ -56,8 +63,34 @@ export class ModerationApi {
     return this.http.post<void>(`${this.base}/reports/bulk-assign`, req);
   }
 
+  byReason(): Observable<{ items: ReasonCount[] }> {
+    return this.http.get<{ items: ReasonCount[] }>(`${this.base}/reports/by-reason`);
+  }
+
+  timeline(id: number): Observable<{ items: ModerationActionRow[] }> {
+    return this.http.get<{ items: ModerationActionRow[] }>(`${this.base}/reports/${id}/timeline`);
+  }
+
+  authorHistory(id: number): Observable<AuthorHistory> {
+    return this.http.get<AuthorHistory>(`${this.base}/reports/${id}/author-history`);
+  }
+
+  signals(id: number): Observable<{ items: AutoFlagSignal[] }> {
+    return this.http.get<{ items: AutoFlagSignal[] }>(`${this.base}/reports/${id}/signals`);
+  }
+
   history(page = 0, size = 20): Observable<Page<ModerationActionRow>> {
     const params = new HttpParams().set('page', page).set('size', size);
     return this.http.get<Page<ModerationActionRow>>(`${this.base}/moderation/history`, { params });
+  }
+
+  appeals(status: string | null, page = 0, size = 20): Observable<Page<AppealRow>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (status) { params = params.set('status', status); }
+    return this.http.get<Page<AppealRow>>(`${this.base}/appeals`, { params });
+  }
+
+  resolveAppeal(id: number, req: AppealResolveRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/appeals/${id}/resolve`, req);
   }
 }

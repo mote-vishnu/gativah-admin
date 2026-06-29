@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IconComponent } from '../../shared/icon';
@@ -8,12 +8,12 @@ import { AuditApi } from '../../core/admin.api';
 import { AuthService } from '../../core/auth.service';
 import { FinanceApi } from '../../core/finance.api';
 import { ModerationApi } from '../../core/moderation.api';
-import { AuditEntryRow, FinanceOverview, FinanceRevenueResponse, WebhookHealth } from '../../core/models';
+import { AuditEntryRow, FinanceOverview, FinanceRevenueResponse, ReasonCount, ReportSummary, WebhookHealth } from '../../core/models';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, IconComponent, DatePipe, ChartComponent],
+  imports: [RouterLink, IconComponent, DatePipe, TitleCasePipe, ChartComponent],
   template: `
     <h1 class="title">Dashboard</h1>
     <p class="crumb">Operations overview · live</p>
@@ -21,22 +21,22 @@ import { AuditEntryRow, FinanceOverview, FinanceRevenueResponse, WebhookHealth }
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
     <div class="row g4">
-      <a class="card kpi" routerLink="/moderation">
+      <a class="card kpi" routerLink="/moderation/queue">
         <div class="lab"><span class="ic tint-rose"><lucide-icon name="flag" [size]="16" /></span> Open reports</div>
         <div class="val">{{ openReports() ?? '—' }}</div>
         <div class="delta flat">pending triage</div>
       </a>
-      <a class="card kpi" routerLink="/finance">
+      <a class="card kpi" routerLink="/finance/dashboard">
         <div class="lab"><span class="ic tint-orange"><lucide-icon name="dollar-sign" [size]="16" /></span> MRR</div>
         <div class="val">{{ money(ov()?.mrr) }}</div>
         <div class="delta flat">ARR {{ money(ov()?.arr) }}</div>
       </a>
-      <a class="card kpi" routerLink="/finance">
+      <a class="card kpi" routerLink="/finance/dashboard">
         <div class="lab"><span class="ic tint-green"><lucide-icon name="users" [size]="16" /></span> Active subs</div>
         <div class="val">{{ ov()?.activeSubscribers ?? '—' }}</div>
         <div class="delta flat">{{ ov()?.trialing ?? 0 }} trialing</div>
       </a>
-      <a class="card kpi" routerLink="/finance">
+      <a class="card kpi" routerLink="/finance/dashboard">
         <div class="lab"><span class="ic tint-cyan"><lucide-icon name="credit-card" [size]="16" /></span> Net · MTD</div>
         <div class="val">{{ money(ov()?.netMtd) }}</div>
         <div class="delta flat">refunds {{ money(ov()?.refundsMtd) }}</div>
@@ -60,6 +60,27 @@ import { AuditEntryRow, FinanceOverview, FinanceRevenueResponse, WebhookHealth }
           } @else {
             <div class="empty">Loading…</div>
           }
+        </div>
+      </div>
+    }
+
+    @if (canGrievances()) {
+      <div class="row g2" style="margin-top:18px">
+        <div class="card">
+          <div class="card-h"><h3>Queue by reason</h3><span class="hint">open reports</span></div>
+          @if (byReason().length) {
+            <ui-chart type="bar" [series]="reasonSeries()" [categories]="reasonCats()" [colors]="['--rose']" [options]="reasonOpts" [height]="240" />
+          } @else { <div class="empty">No open reports 🎉</div> }
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Newest grievances</h3><a class="hint" routerLink="/moderation/queue">View all →</a></div>
+          @for (r of newest(); track r.id) {
+            <a class="act" [routerLink]="['/moderation', r.id]">
+              <span class="dot"></span>
+              <div class="grow"><b>{{ r.contentType | titlecase }}</b> · {{ snippet(r) }} <small>{{ r.reporterUsername ? '@' + r.reporterUsername : '' }}</small></div>
+              <span class="pill reason">{{ r.reason }}</span>
+            </a>
+          } @empty { <div class="empty">No open grievances.</div> }
         </div>
       </div>
     }
@@ -114,14 +135,25 @@ export class DashboardComponent implements OnInit {
     stroke: { width: 0 },
   };
 
+  readonly reasonOpts = {
+    plotOptions: { bar: { horizontal: true, borderRadius: 6 } },
+    legend: { show: false },
+    dataLabels: { enabled: false },
+  };
+
   readonly ov = signal<FinanceOverview | null>(null);
   readonly rev = signal<FinanceRevenueResponse | null>(null);
   readonly openReports = signal<number | null>(null);
   readonly webhooks = signal<WebhookHealth | null>(null);
   readonly recent = signal<AuditEntryRow[]>([]);
+  readonly byReason = signal<ReasonCount[]>([]);
+  readonly newest = signal<ReportSummary[]>([]);
   readonly error = signal<string | null>(null);
 
   readonly canFinance = computed(() => this.auth.can('FINANCE:VIEW'));
+  readonly canGrievances = computed(() => this.auth.can('GRIEVANCES:VIEW'));
+  readonly reasonSeries = computed(() => [{ name: 'Open', data: this.byReason().map((r) => r.count) }]);
+  readonly reasonCats = computed(() => this.byReason().map((r) => r.reason));
   readonly revSeries = computed(() => {
     const s = this.rev()?.series ?? [];
     return [
@@ -144,15 +176,26 @@ export class DashboardComponent implements OnInit {
       this.finance.revenue('month').subscribe({ next: (r) => this.rev.set(r), error: () => {} });
       this.finance.webhooks().subscribe({ next: (w) => this.webhooks.set(w), error: () => {} });
     }
-    this.moderation.reports({ status: 'PENDING', size: 1 }).subscribe({
-      next: (p) => this.openReports.set(p.totalElements),
-      error: () => {},
-    });
-    this.audit.list(0, 6).subscribe({ next: (p) => this.recent.set(p.content), error: () => {} });
+    if (this.canGrievances()) {
+      this.moderation.reports({ status: ['PENDING', 'REVIEWING'], size: 1 }).subscribe({
+        next: (p) => this.openReports.set(p.totalElements),
+        error: () => {},
+      });
+      this.moderation.reports({ status: ['PENDING', 'REVIEWING'], size: 6 }).subscribe({
+        next: (p) => this.newest.set(p.content),
+        error: () => {},
+      });
+      this.moderation.byReason().subscribe({ next: (r) => this.byReason.set(r.items), error: () => {} });
+    }
+    this.audit.list({ page: 0, size: 6 }).subscribe({ next: (p) => this.recent.set(p.content), error: () => {} });
   }
 
   money(v: number | null | undefined): string {
     if (v == null) return '—';
     return '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  snippet(r: ReportSummary): string {
+    return r.snippet ? r.snippet.slice(0, 44) : '(no preview)';
   }
 }

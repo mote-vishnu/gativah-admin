@@ -3,13 +3,17 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import { CheckboxComponent, MultiSelectComponent, SelectOption } from '../../shared/forms';
+import { CheckboxComponent, MultiSelectComponent, SelectComponent, SelectOption } from '../../shared/forms';
 import { IconComponent } from '../../shared/icon';
 import { PageHeaderComponent } from '../../shared/page-header';
-import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
+import { PaginatorComponent, SortState, TableColumn, TableComponent } from '../../shared/table';
 import { ModerationApi } from '../../core/moderation.api';
 import { AuthService } from '../../core/auth.service';
+import { ExportService } from '../../core/export.service';
+import { AdminDirectoryService } from '../../core/admin-directory.service';
 import { Page, ReportSummary, ResolveAction } from '../../core/models';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
+import { ToastService } from '../../shared/toast/toast.service';
 
 const STATUS_OPTIONS: SelectOption[] = [
   { value: 'PENDING', label: 'Pending' },
@@ -17,21 +21,39 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'RESOLVED', label: 'Resolved' },
   { value: 'DISMISSED', label: 'Dismissed' },
 ];
+const REASON_OPTIONS: SelectOption[] = [
+  { value: '', label: 'All reasons' },
+  { value: 'Harassment', label: 'Harassment' },
+  { value: 'Spam', label: 'Spam' },
+  { value: 'Nudity', label: 'Nudity' },
+  { value: 'Misinformation', label: 'Misinformation' },
+  { value: 'Illegal', label: 'Illegal' },
+];
+const TYPE_OPTIONS: SelectOption[] = [
+  { value: '', label: 'All content' },
+  { value: 'POST', label: 'Posts' },
+  { value: 'COMMENT', label: 'Comments' },
+];
 const OVERDUE_HOURS = 24;
 
 @Component({
   selector: 'app-moderation-list',
   standalone: true,
   template: `
-    <ui-page-header icon="flag" title="Grievances" subtitle="Content reports & moderation"
-                    tint="rose" [count]="page()?.totalElements ?? null" />
+    <ui-page-header icon="flag" title="Grievance queue" subtitle="Triage open content reports"
+                    tint="rose" [count]="page()?.totalElements ?? null">
+      <button page-actions class="btn" (click)="exportCsv()" [disabled]="(page()?.content?.length ?? 0) === 0">
+        <lucide-icon name="download" [size]="15" /> Export
+      </button>
+    </ui-page-header>
 
     <div class="filterbar">
-      <ui-multiselect placeholder="All statuses" [options]="statusOptions" [(ngModel)]="statusSel" (ngModelChange)="applyFilter()" />
+      <div class="f wide"><ui-multiselect placeholder="All statuses" [options]="statusOptions" [(ngModel)]="statusSel" (ngModelChange)="applyFilter()" /></div>
+      <div class="f"><ui-select [options]="reasonOptions" [(ngModel)]="reasonSel" (ngModelChange)="applyFilter()" /></div>
+      <div class="f"><ui-select [options]="typeOptions" [(ngModel)]="typeSel" (ngModelChange)="applyFilter()" /></div>
     </div>
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
-    @if (message()) { <div class="ok">✓ {{ message() }}</div> }
 
     @if (canEdit() && selectedCount() > 0) {
       <div class="bulkbar">
@@ -44,7 +66,8 @@ const OVERDUE_HOURS = 24;
       </div>
     }
 
-    <ui-table [columns]="columns()" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No reports.">
+    <ui-table [columns]="columns()" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No reports."
+              [sort]="sort()" (sortChange)="onSort($event)">
       @for (r of page()?.content ?? []; track r.id) {
         <tr class="clickable" (click)="open(r)">
           @if (canEdit()) {
@@ -79,7 +102,9 @@ const OVERDUE_HOURS = 24;
   styles: `
     .title { font-family: var(--sans); font-weight: 800; font-size: 22px; margin: 0 0 4px; letter-spacing: -0.02em; }
     .crumb { color: var(--muted-2); font-size: 12px; margin: 0 0 18px; }
-    .filterbar { width: 260px; max-width: 100%; margin-bottom: 18px; }
+    .filterbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .filterbar .f { width: 190px; max-width: 100%; }
+    .filterbar .f.wide { width: 240px; }
     .ok { font-size: 11.5px; color: var(--green); background: rgba(74,222,128,0.09); border: 1px solid rgba(74,222,128,0.26); border-radius: 11px; padding: 11px 14px; margin-bottom: 14px; }
     .bulkbar { display: flex; align-items: center; gap: 9px; padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--brand-line); background: var(--brand-soft); border-radius: var(--r-sm); }
     .bulkbar .cnt { font-size: 13px; font-weight: 600; color: var(--brand); }
@@ -90,15 +115,24 @@ const OVERDUE_HOURS = 24;
     .age { font-size: 10.5px; color: var(--muted-2); }
     .age.over { color: var(--rose); font-weight: 600; }
   `,
-  imports: [FormsModule, DatePipe, TitleCasePipe, TableComponent, PaginatorComponent, CheckboxComponent, IconComponent, MultiSelectComponent, PageHeaderComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, TableComponent, PaginatorComponent, CheckboxComponent, IconComponent, MultiSelectComponent, SelectComponent, PageHeaderComponent],
 })
 export class ModerationListComponent implements OnInit {
   private readonly api = inject(ModerationApi);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+  private readonly exporter = inject(ExportService);
+  private readonly dir = inject(AdminDirectoryService);
 
   readonly statusOptions = STATUS_OPTIONS;
+  readonly reasonOptions = REASON_OPTIONS;
+  readonly typeOptions = TYPE_OPTIONS;
   statusSel: string[] = ['PENDING'];
+  reasonSel = '';
+  typeSel = '';
+  readonly sort = signal<SortState | null>(null);
   readonly pageIndex = signal(0);
   readonly page = signal<Page<ReportSummary> | null>(null);
   readonly loading = signal(true);
@@ -112,27 +146,61 @@ export class ModerationListComponent implements OnInit {
 
   readonly columns = computed<TableColumn[]>(() => {
     const cols: TableColumn[] = [
-      { label: 'Reported content' },
+      { label: 'Reported content', sortKey: 'contentType' },
       { label: 'Author' },
       { label: 'Reporter' },
-      { label: 'Reason' },
-      { label: 'Status' },
+      { label: 'Reason', sortKey: 'reason' },
+      { label: 'Status', sortKey: 'status' },
       { label: 'Assignee' },
-      { label: 'When' },
+      { label: 'When', sortKey: 'createdAt' },
     ];
     return this.canEdit() ? [{ label: '', width: '1%' }, ...cols] : cols;
   });
 
   ngOnInit(): void {
+    this.dir.load();
     this.load();
   }
 
   private load(): void {
     this.loading.set(true);
-    this.api.reports({ status: this.statusSel, page: this.pageIndex(), size: 20 }).subscribe({
+    const s = this.sort();
+    this.api.reports({
+      status: this.statusSel,
+      reason: this.reasonSel || null,
+      contentType: this.typeSel || null,
+      sort: s ? `${s.key},${s.dir}` : null,
+      page: this.pageIndex(),
+      size: 20,
+    }).subscribe({
       next: (p) => { this.page.set(p); this.loading.set(false); },
       error: () => { this.error.set('Could not load reports.'); this.loading.set(false); },
     });
+  }
+
+  exportCsv(): void {
+    const rows = (this.page()?.content ?? []).map((r) => ({
+      id: r.id,
+      type: r.contentType,
+      reason: r.reason,
+      status: r.status,
+      author: r.authorUsername ?? '',
+      reporter: r.reporterUsername ?? '',
+      assignee: r.assigneeAdminId ?? '',
+      createdAt: r.createdAt,
+    }));
+    if (!rows.length) { return; }
+    this.exporter.download('grievances', [
+      { key: 'id', label: 'Report' },
+      { key: 'type', label: 'Type' },
+      { key: 'reason', label: 'Reason' },
+      { key: 'status', label: 'Status' },
+      { key: 'author', label: 'Author' },
+      { key: 'reporter', label: 'Reporter' },
+      { key: 'assignee', label: 'Assignee' },
+      { key: 'createdAt', label: 'Reported at' },
+    ], rows);
+    this.toast.info(`Exported ${rows.length} report(s).`);
   }
 
   applyFilter(): void {
@@ -142,6 +210,7 @@ export class ModerationListComponent implements OnInit {
   }
 
   goTo(i: number): void { this.pageIndex.set(i); this.clear(); this.load(); }
+  onSort(s: SortState): void { this.sort.set(s); this.pageIndex.set(0); this.clear(); this.load(); }
 
   toggle(id: number, on: boolean): void {
     const next = new Set(this.selected());
@@ -151,22 +220,39 @@ export class ModerationListComponent implements OnInit {
 
   clear(): void { this.selected.set(new Set()); }
 
-  bulk(action: ResolveAction): void {
+  async bulk(action: ResolveAction): Promise<void> {
     const ids = [...this.selected()];
     if (!ids.length) { return; }
-    if (action === 'TAKEDOWN' && !confirm(`Take down content for ${ids.length} report(s)?`)) { return; }
+    const destructive = action === 'TAKEDOWN' || action === 'BAN' || action === 'SUSPEND';
+    const res = await this.confirm.confirm({
+      title: `${this.actionLabel(action)} ${ids.length} report(s)?`,
+      message: 'This runs the action on each selected report and is written to the audit log.',
+      confirmLabel: this.actionLabel(action),
+      tone: destructive ? 'danger' : 'default',
+      input: { label: 'Reason (optional)', placeholder: 'Recorded with each action' },
+    });
+    if (!res.confirmed) { return; }
     this.busy.set(true);
-    this.error.set(null);
-    this.message.set(null);
-    this.api.bulkResolve({ ids, action }).subscribe({
-      next: (res) => {
+    this.api.bulkResolve({ ids, action, reason: res.value || undefined }).subscribe({
+      next: (r) => {
         this.busy.set(false);
         this.clear();
-        this.message.set(`${res.resolved} resolved${res.failed ? `, ${res.failed} failed` : ''}.`);
+        this.toast.success(`${r.resolved} resolved${r.failed ? `, ${r.failed} failed` : ''}.`);
         this.load();
       },
-      error: () => { this.busy.set(false); this.error.set('Bulk action failed.'); },
+      error: () => { this.busy.set(false); this.toast.error('Bulk action failed.'); },
     });
+  }
+
+  private actionLabel(a: ResolveAction): string {
+    switch (a) {
+      case 'TAKEDOWN': return 'Take down';
+      case 'DISMISS': return 'Dismiss';
+      case 'BAN': return 'Ban author';
+      case 'SUSPEND': return 'Suspend author';
+      case 'WARN': return 'Warn author';
+      default: return 'Resolve';
+    }
   }
 
   assignMe(): void {
@@ -174,22 +260,20 @@ export class ModerationListComponent implements OnInit {
     if (!ids.length) { return; }
     const me = this.auth.me()?.id ?? null;
     this.busy.set(true);
-    this.error.set(null);
-    this.message.set(null);
     this.api.bulkAssign({ ids, adminId: me }).subscribe({
       next: () => {
         this.busy.set(false);
         this.clear();
-        this.message.set(`${ids.length} report(s) assigned to you.`);
+        this.toast.success(`${ids.length} report(s) assigned to you.`);
         this.load();
       },
-      error: () => { this.busy.set(false); this.error.set('Assign failed.'); },
+      error: () => { this.busy.set(false); this.toast.error('Assign failed.'); },
     });
   }
 
   assigneeLabel(r: ReportSummary): string {
     if (r.assigneeAdminId == null) { return '—'; }
-    return r.assigneeAdminId === this.auth.me()?.id ? 'you' : '#' + r.assigneeAdminId;
+    return r.assigneeAdminId === this.auth.me()?.id ? 'you' : this.dir.name(r.assigneeAdminId);
   }
 
   open(r: ReportSummary): void {

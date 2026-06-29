@@ -4,9 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { InputComponent, MultiSelectComponent, SelectOption } from '../../shared/forms';
+import { IconComponent } from '../../shared/icon';
 import { PageHeaderComponent } from '../../shared/page-header';
-import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
+import { PaginatorComponent, SortState, TableColumn, TableComponent } from '../../shared/table';
 import { ClubsApi } from '../../core/clubs.api';
+import { ExportService } from '../../core/export.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { ClubSummary, Page } from '../../core/models';
 
 const VISIBILITY_OPTIONS: SelectOption[] = [
@@ -21,10 +24,14 @@ const STATUS_OPTIONS: SelectOption[] = [
 @Component({
   selector: 'app-clubs-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, TitleCasePipe, InputComponent, MultiSelectComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, InputComponent, MultiSelectComponent, IconComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
   template: `
     <ui-page-header icon="users-round" title="Clubs" subtitle="Community directory"
-                    tint="green" [count]="page()?.totalElements ?? null" />
+                    tint="green" [count]="page()?.totalElements ?? null">
+      <button page-actions class="btn" (click)="exportCsv()" [disabled]="(page()?.content?.length ?? 0) === 0">
+        <lucide-icon name="download" [size]="15" /> Export
+      </button>
+    </ui-page-header>
 
     <div class="toolbar">
       <div class="search"><ui-input placeholder="Search club name…" [(ngModel)]="q" (enter)="search()" /></div>
@@ -34,7 +41,8 @@ const STATUS_OPTIONS: SelectOption[] = [
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
-    <ui-table [columns]="columns" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No clubs found.">
+    <ui-table [columns]="columns" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No clubs found."
+              [sort]="sort()" (sortChange)="onSort($event)">
       @for (cl of page()?.content ?? []; track cl.id) {
         <tr class="clickable" (click)="open(cl)">
           <td><b>{{ cl.name }}</b></td>
@@ -68,6 +76,8 @@ const STATUS_OPTIONS: SelectOption[] = [
 export class ClubsListComponent implements OnInit {
   private readonly api = inject(ClubsApi);
   private readonly router = inject(Router);
+  private readonly exporter = inject(ExportService);
+  private readonly toast = inject(ToastService);
 
   readonly visibilityOptions = VISIBILITY_OPTIONS;
   readonly statusOptions = STATUS_OPTIONS;
@@ -77,11 +87,12 @@ export class ClubsListComponent implements OnInit {
   readonly page = signal<Page<ClubSummary> | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly sort = signal<SortState | null>(null);
   q = '';
 
   readonly columns: TableColumn[] = [
-    { label: 'Club' }, { label: 'Owner' }, { label: 'Visibility' },
-    { label: 'Members' }, { label: 'Events' }, { label: 'Status' }, { label: 'Created' },
+    { label: 'Club', sortKey: 'name' }, { label: 'Owner' }, { label: 'Visibility', sortKey: 'visibility' },
+    { label: 'Members', sortKey: 'members' }, { label: 'Events', sortKey: 'events' }, { label: 'Status' }, { label: 'Created', sortKey: 'createdAt' },
   ];
 
   ngOnInit(): void {
@@ -90,10 +101,12 @@ export class ClubsListComponent implements OnInit {
 
   private load(): void {
     this.loading.set(true);
+    const s = this.sort();
     this.api.list({
       q: this.q.trim() || null,
       visibility: this.visibilitySel,
       status: this.statusSel,
+      sort: s ? `${s.key},${s.dir}` : null,
       page: this.pageIndex(),
       size: 20,
     }).subscribe({
@@ -105,6 +118,21 @@ export class ClubsListComponent implements OnInit {
   search(): void { this.pageIndex.set(0); this.load(); }
   applyFilter(): void { this.pageIndex.set(0); this.load(); }
   goTo(i: number): void { this.pageIndex.set(i); this.load(); }
+  onSort(s: SortState): void { this.sort.set(s); this.pageIndex.set(0); this.load(); }
+
+  exportCsv(): void {
+    const rows = (this.page()?.content ?? []).map((cl) => ({
+      id: cl.id, name: cl.name, owner: cl.ownerUsername ?? '', visibility: cl.visibility,
+      members: cl.memberCount, events: cl.eventCount, status: cl.removed ? 'Removed' : 'Active', created: cl.createdAt,
+    }));
+    if (!rows.length) { return; }
+    this.exporter.download('clubs', [
+      { key: 'id', label: 'ID' }, { key: 'name', label: 'Club' }, { key: 'owner', label: 'Owner' },
+      { key: 'visibility', label: 'Visibility' }, { key: 'members', label: 'Members' }, { key: 'events', label: 'Events' },
+      { key: 'status', label: 'Status' }, { key: 'created', label: 'Created' },
+    ], rows);
+    this.toast.info(`Exported ${rows.length} club(s).`);
+  }
 
   open(cl: ClubSummary): void { void this.router.navigate(['/clubs', cl.id]); }
 }

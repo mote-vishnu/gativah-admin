@@ -17,6 +17,12 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'CLOSED', label: 'Closed' },
 ];
 
+const DIRECTION_OPTIONS: SelectOption[] = [
+  { value: 'INBOUND', label: 'Inbound' },
+  { value: 'OUTBOUND', label: 'Outbound' },
+  { value: 'NOTE', label: 'Note' },
+];
+
 @Component({
   selector: 'app-legal-detail',
   standalone: true,
@@ -73,18 +79,96 @@ const STATUS_OPTIONS: SelectOption[] = [
               }
             </ui-table>
           </div>
+
+          <div class="card" style="margin-top:18px">
+            <div class="card-h"><h3>Tasks</h3><span class="hint">{{ openTasks(r) }} open</span></div>
+            @for (t of r.tasks; track t.id) {
+              <div class="trow">
+                <span class="pill" [class]="t.status === 'DONE' ? 'active' : 'pending'">{{ t.status | titlecase }}</span>
+                <div class="grow"><b [class.done]="t.status === 'DONE'">{{ t.title }}</b>
+                  <small>{{ t.dueAt ? ('due ' + (t.dueAt | date: 'MMM d')) : '' }}{{ t.assigneeAdminId ? ' · #' + t.assigneeAdminId : '' }}</small></div>
+                @if (canEdit() && t.status !== 'DONE') {
+                  <button class="btn tiny" (click)="completeTask(t.id)" [disabled]="busy()">Done</button>
+                }
+              </div>
+            } @empty { <div class="empty">No tasks.</div> }
+            @if (canEdit()) {
+              <div class="addrow">
+                <ui-input placeholder="New task…" [(ngModel)]="taskDraft.title" />
+                <ui-input type="date" [(ngModel)]="taskDraft.dueAt" />
+                <button class="btn" (click)="addTask()" [disabled]="busy() || !taskDraft.title.trim()">Add</button>
+              </div>
+            }
+          </div>
+
+          <div class="card" style="margin-top:18px">
+            <div class="card-h"><h3>Correspondence</h3><span class="hint">{{ r.correspondence.length }}</span></div>
+            @for (c of r.correspondence; track c.id) {
+              <div class="trow">
+                <span class="pill" [class]="c.direction === 'INBOUND' ? 'review' : c.direction === 'OUTBOUND' ? 'resolved' : 'reason'">{{ c.direction | titlecase }}</span>
+                <div class="grow"><span class="muted">{{ c.summary }}</span><small>{{ c.channel || '' }}</small></div>
+                <span class="when">{{ c.createdAt | date: 'MMM d' }}</span>
+              </div>
+            } @empty { <div class="empty">No correspondence logged.</div> }
+            @if (canEdit()) {
+              <div class="addrow">
+                <ui-select [options]="directionOptions" [(ngModel)]="corrDraft.direction" />
+                <ui-input placeholder="Summary / note…" [(ngModel)]="corrDraft.summary" />
+                <button class="btn" (click)="addCorrespondence()" [disabled]="busy() || !corrDraft.summary.trim()">Log</button>
+              </div>
+            }
+          </div>
+
+          <div class="card" style="margin-top:18px">
+            <div class="card-h"><h3>Chain of custody</h3><span class="hint">append-only</span></div>
+            @if (r.custody.length) {
+              <div class="timeline" style="margin-top:6px">
+                @for (e of r.custody; track e.id) {
+                  <div class="tl">
+                    <div class="when">{{ e.createdAt | date: 'MMM d, HH:mm' }} · {{ e.actorAdminId ? '#' + e.actorAdminId : 'system' }}</div>
+                    <div class="what" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                      <span class="pill" [class]="custodyClass(e.event)">{{ e.event | titlecase }}</span>
+                      <span class="muted">{{ e.detail || '—' }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else { <div class="empty">No custody events.</div> }
+          </div>
         </div>
 
         <div>
-          @if (canEdit() && r.status !== 'REJECTED') {
-            <div class="card">
-              <div class="card-h"><h3>Record a disclosure</h3></div>
-              <ui-input label="Recipient" placeholder="Who received the data" [(ngModel)]="disc.recipient" />
-              <ui-input label="Data categories" placeholder="e.g. account, content, IP logs" [(ngModel)]="disc.dataCategories" />
-              <ui-textarea label="Justification" placeholder="Legal basis for the release…" [rows]="3" [(ngModel)]="disc.justification" />
-              <button class="btn primary full" (click)="record()" [disabled]="busy() || !canSubmit()">Record disclosure</button>
-              <div class="note" style="margin-top:14px">⚠ Only disclose under a valid legal process. Every disclosure is written to the audit log.</div>
+          @if (canEdit()) {
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-h"><h3>Approval</h3><span class="pill" [class]="approvalClass(r.approvalStatus)">{{ r.approvalStatus | titlecase }}</span></div>
+              @if (r.approvalStatus === 'PENDING') {
+                <ui-textarea label="Decision note" [rows]="2" placeholder="Authenticity & legal sufficiency…" [(ngModel)]="approvalNote" />
+                <div class="acts2">
+                  <button class="btn primary" (click)="approve(true)" [disabled]="busy()">Approve</button>
+                  <button class="btn danger" (click)="approve(false)" [disabled]="busy()">Reject</button>
+                </div>
+              } @else {
+                <div class="meta">
+                  <div><span>Decided by</span><b>{{ r.approvedBy ? '#' + r.approvedBy : '—' }}</b></div>
+                  <div><span>When</span><b>{{ r.approvedAt ? (r.approvedAt | date: 'MMM d, y') : '—' }}</b></div>
+                  @if (r.approvalNote) { <div class="full"><span>Note</span><p>{{ r.approvalNote }}</p></div> }
+                </div>
+              }
             </div>
+          }
+          @if (canEdit() && r.status !== 'REJECTED') {
+            @if (r.approvalStatus === 'APPROVED') {
+              <div class="card">
+                <div class="card-h"><h3>Record a disclosure</h3></div>
+                <ui-input label="Recipient" placeholder="Who received the data" [(ngModel)]="disc.recipient" />
+                <ui-input label="Data categories" placeholder="e.g. account, content, IP logs" [(ngModel)]="disc.dataCategories" />
+                <ui-textarea label="Justification" placeholder="Legal basis for the release…" [rows]="3" [(ngModel)]="disc.justification" />
+                <button class="btn primary full" (click)="record()" [disabled]="busy() || !canSubmit()">Record disclosure</button>
+                <div class="note" style="margin-top:14px">⚠ Only disclose under a valid legal process. Every disclosure is written to the audit log.</div>
+              </div>
+            } @else {
+              <div class="card"><div class="note">Approve the request before recording disclosures.</div></div>
+            }
           } @else if (!canEdit()) {
             <div class="card"><div class="note">Read-only access to legal requests (no LEGAL:EDIT).</div></div>
           } @else {
@@ -110,6 +194,18 @@ const STATUS_OPTIONS: SelectOption[] = [
     .status-row { margin-top: 16px; max-width: 240px; }
     .full { width: 100%; margin-top: 6px; }
     .btn.full { width: 100%; margin-top: 16px; }
+    .acts2 { display: flex; gap: 9px; margin-top: 12px; }
+    .acts2 .btn { flex: 1; }
+    .trow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+    .trow:last-of-type { border-bottom: 0; }
+    .trow .grow { flex: 1; min-width: 0; }
+    .trow .grow b { font-size: 13px; } .trow .grow b.done { text-decoration: line-through; color: var(--muted-2); }
+    .trow .grow small { display: block; color: var(--muted-2); font-size: 10.5px; }
+    .trow .grow .muted { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .trow .when { font-family: var(--mono); font-size: 10px; color: var(--muted-2); white-space: nowrap; }
+    .btn.tiny { padding: 5px 10px; font-size: 11px; }
+    .addrow { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+    .addrow ui-input, .addrow ui-select { flex: 1; }
   `,
 })
 export class LegalDetailComponent implements OnInit {
@@ -118,6 +214,7 @@ export class LegalDetailComponent implements OnInit {
   private readonly auth = inject(AuthService);
 
   readonly statusOptions = STATUS_OPTIONS;
+  readonly directionOptions = DIRECTION_OPTIONS;
 
   readonly req = signal<LegalRequestDetail | null>(null);
   readonly busy = signal(false);
@@ -130,6 +227,9 @@ export class LegalDetailComponent implements OnInit {
   ];
 
   disc: RecordDisclosureRequest = { recipient: '', dataCategories: '', justification: '' };
+  approvalNote = '';
+  taskDraft: { title: string; dueAt: string } = { title: '', dueAt: '' };
+  corrDraft: { direction: string; summary: string } = { direction: 'NOTE', summary: '' };
 
   ngOnInit(): void {
     this.load();
@@ -173,6 +273,69 @@ export class LegalDetailComponent implements OnInit {
       },
       error: () => { this.busy.set(false); this.error.set('Could not record disclosure.'); },
     });
+  }
+
+  approve(grant: boolean): void {
+    const r = this.req();
+    if (!r) { return; }
+    this.busy.set(true);
+    this.api.approve(r.id, grant, this.approvalNote.trim() || null).subscribe({
+      next: () => { this.busy.set(false); this.approvalNote = ''; this.load(); },
+      error: () => { this.busy.set(false); this.error.set('Could not record the decision.'); },
+    });
+  }
+
+  addTask(): void {
+    const r = this.req();
+    if (!r || !this.taskDraft.title.trim()) { return; }
+    this.busy.set(true);
+    this.api.addTask(r.id, {
+      title: this.taskDraft.title.trim(),
+      assigneeAdminId: null,
+      dueAt: this.taskDraft.dueAt ? `${this.taskDraft.dueAt}T00:00:00` : null,
+    }).subscribe({
+      next: () => { this.busy.set(false); this.taskDraft = { title: '', dueAt: '' }; this.load(); },
+      error: () => { this.busy.set(false); this.error.set('Could not add task.'); },
+    });
+  }
+
+  completeTask(taskId: number): void {
+    this.busy.set(true);
+    this.api.completeTask(taskId).subscribe({
+      next: () => { this.busy.set(false); this.load(); },
+      error: () => { this.busy.set(false); this.error.set('Could not complete task.'); },
+    });
+  }
+
+  addCorrespondence(): void {
+    const r = this.req();
+    if (!r || !this.corrDraft.summary.trim()) { return; }
+    this.busy.set(true);
+    this.api.addCorrespondence(r.id, {
+      direction: this.corrDraft.direction,
+      channel: null,
+      summary: this.corrDraft.summary.trim(),
+    }).subscribe({
+      next: () => { this.busy.set(false); this.corrDraft = { direction: 'NOTE', summary: '' }; this.load(); },
+      error: () => { this.busy.set(false); this.error.set('Could not log correspondence.'); },
+    });
+  }
+
+  openTasks(r: LegalRequestDetail): number {
+    return r.tasks.filter((t) => t.status !== 'DONE').length;
+  }
+
+  approvalClass(s: string): string {
+    return s === 'APPROVED' ? 'active' : s === 'REJECTED' ? 'banned' : 'pending';
+  }
+
+  custodyClass(e: string): string {
+    switch (e) {
+      case 'APPROVED': case 'DISCLOSED': return 'resolved';
+      case 'REJECTED': return 'banned';
+      case 'RECEIVED': return 'review';
+      default: return 'reason';
+    }
   }
 
   typeLabel(value: string): string {

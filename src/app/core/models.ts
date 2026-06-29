@@ -41,17 +41,32 @@ export interface ReportSummary {
 
 export interface ReportDetail extends ReportSummary {
   details: string;
+  reporterCount: number;
+  authorDisplayName: string | null;
+  authorPhotoUrl: string | null;
   authorStatus: string;
+  privacy: string | null;
+  mediaCount: number;
   reviewedBy: number | null;
   reviewedAt: string | null;
 }
 
-export type ResolveAction = 'DISMISS' | 'TAKEDOWN' | 'WARN' | 'SUSPEND' | 'BAN';
+export type ResolveAction = 'DISMISS' | 'TAKEDOWN' | 'WARN' | 'SUSPEND' | 'BAN' | 'REGION_BAN';
 
 export interface ResolveRequest {
   action: ResolveAction;
   reason?: string;
   suspendDays?: number;
+  country?: string;
+}
+
+export interface AutoFlagSignal {
+  key: string;
+  label: string;
+  score: number | null;
+  isBoolean: boolean;
+  boolValue: boolean | null;
+  severity: 'LOW' | 'MED' | 'HIGH';
 }
 
 export interface ResolveResponse {
@@ -79,6 +94,44 @@ export interface AssignRequest {
 export interface BulkAssignRequest {
   ids: number[];
   adminId: number | null;
+}
+
+export interface ReasonCount {
+  reason: string;
+  count: number;
+}
+
+export interface AuthorSanctionRow {
+  type: string;
+  reason: string | null;
+  suspendedUntil: string | null;
+  createdAt: string | null;
+}
+
+export interface AuthorHistory {
+  authorUserId: number | null;
+  accountStatus: string | null;
+  reportsAgainst: number;
+  openReports: number;
+  followers: number;
+  plan: string;
+  memberSince: string | null;
+  recentSanctions: AuthorSanctionRow[];
+}
+
+export interface AppealRow {
+  id: number;
+  subjectUserId: number;
+  relatedReportId: number | null;
+  relatedActionId: number | null;
+  message: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AppealResolveRequest {
+  grant: boolean;
+  note?: string;
 }
 
 export interface ModerationActionRow {
@@ -265,13 +318,48 @@ export interface DisclosureRow {
   disclosedAt: string;
 }
 
+export interface LegalTaskRow {
+  id: number;
+  title: string;
+  status: string;
+  assigneeAdminId: number | null;
+  dueAt: string | null;
+  createdBy: number;
+  createdAt: string | null;
+  completedAt: string | null;
+}
+
+export interface LegalCorrespondenceRow {
+  id: number;
+  direction: string;
+  channel: string | null;
+  summary: string;
+  createdBy: number;
+  createdAt: string | null;
+}
+
+export interface LegalCustodyEventRow {
+  id: number;
+  event: string;
+  detail: string | null;
+  actorAdminId: number | null;
+  createdAt: string | null;
+}
+
 export interface LegalRequestDetail extends LegalRequestSummary {
   scope: string | null;
   notes: string | null;
+  approvalStatus: string;
+  approvedBy: number | null;
+  approvedAt: string | null;
+  approvalNote: string | null;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
   disclosures: DisclosureRow[];
+  tasks: LegalTaskRow[];
+  correspondence: LegalCorrespondenceRow[];
+  custody: LegalCustodyEventRow[];
 }
 
 export interface CreateLegalRequest {
@@ -342,6 +430,28 @@ export interface UserDetail {
   sanctions: SanctionRow[];
 }
 
+export interface UserDeviceRow {
+  platform: string;
+  appVersion: string | null;
+  locale: string | null;
+  lastSeenAt: string | null;
+}
+
+export interface ActivityPoint {
+  date: string;
+  steps: number;
+  activeMinutes: number;
+}
+
+export interface UserInsights {
+  reportsAgainst: number;
+  sanctionCount: number;
+  riskScore: number;
+  riskLevel: string;
+  devices: UserDeviceRow[];
+  activity: ActivityPoint[];
+}
+
 export interface SuspendUserRequest {
   reason: string;
   days: number | null;
@@ -364,6 +474,19 @@ export interface ContentRow {
 
 export interface TakedownContentRequest {
   reason: string;
+}
+
+export interface StoryRow {
+  id: number;
+  authorUserId: number | null;
+  authorUsername: string | null;
+  kind: string;
+  snippet: string | null;
+  createdAt: string | null;
+  expiresAt: string | null;
+  viewCount: number;
+  reactionCount: number;
+  removed: boolean;
 }
 
 // ── Clubs ─────────────────────────────────────────────────────
@@ -409,6 +532,43 @@ export interface ClubDetail {
   createdAt: string;
   members: ClubMemberRow[];
   events: ClubEventRow[];
+}
+
+// ── Billing Ops ───────────────────────────────────────────────
+export interface EntitlementRow {
+  id: number;
+  userId: number | null;
+  username: string | null;
+  code: string;
+  name: string | null;
+  active: boolean;
+  source: string;
+  expiresAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface RefundRow {
+  id: number;
+  userId: number | null;
+  username: string | null;
+  planCode: string;
+  type: string;
+  grossAmount: number;
+  grossCurrency: string;
+  countryCode: string;
+  purchasedAt: string;
+}
+
+export interface EntitlementDef {
+  code: string;
+  name: string;
+}
+
+export interface GrantCompRequest {
+  userId: number;
+  code: string;
+  expiresAt: string | null;
+  reason: string | null;
 }
 
 // ── MFA ───────────────────────────────────────────────────────

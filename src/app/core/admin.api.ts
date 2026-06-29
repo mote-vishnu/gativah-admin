@@ -30,8 +30,13 @@ import {
 export class AuditApi {
   private readonly http = inject(HttpClient);
 
-  list(page = 0, size = 25): Observable<Page<AuditEntryRow>> {
-    const params = new HttpParams().set('page', page).set('size', size);
+  list(opts: { actorId?: number | null; action?: string | null; q?: string | null; from?: string | null; to?: string | null; page?: number; size?: number } = {}): Observable<Page<AuditEntryRow>> {
+    let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 25);
+    if (opts.actorId != null) { params = params.set('actorId', opts.actorId); }
+    if (opts.action) { params = params.set('action', opts.action); }
+    if (opts.q) { params = params.set('q', opts.q); }
+    if (opts.from) { params = params.set('from', opts.from); }
+    if (opts.to) { params = params.set('to', opts.to); }
     return this.http.get<Page<AuditEntryRow>>(`${API_BASE_URL}/admin/audit`, { params });
   }
 }
@@ -110,6 +115,22 @@ export class LegalApi {
 
   recordDisclosure(id: number, req: RecordDisclosureRequest): Observable<DisclosureRow> {
     return this.http.post<DisclosureRow>(`${this.base}/${id}/disclosures`, req);
+  }
+
+  approve(id: number, approve: boolean, note: string | null): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/approve`, { approve, note });
+  }
+
+  addTask(id: number, req: { title: string; assigneeAdminId: number | null; dueAt: string | null }): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/tasks`, req);
+  }
+
+  completeTask(taskId: number): Observable<void> {
+    return this.http.post<void>(`${API_BASE_URL}/admin/legal/tasks/${taskId}/complete`, {});
+  }
+
+  addCorrespondence(id: number, req: { direction: string; channel: string | null; summary: string }): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/correspondence`, req);
   }
 }
 

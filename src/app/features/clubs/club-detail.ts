@@ -1,15 +1,19 @@
 import { DatePipe, TitleCasePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { IconComponent } from '../../shared/icon';
 import { TableColumn, TableComponent } from '../../shared/table';
 import { ClubsApi } from '../../core/clubs.api';
+import { AuthService } from '../../core/auth.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { ClubDetail } from '../../core/models';
 
 @Component({
   selector: 'app-club-detail',
   standalone: true,
-  imports: [DatePipe, TitleCasePipe, RouterLink, TableComponent],
+  imports: [DatePipe, TitleCasePipe, RouterLink, IconComponent, TableComponent],
   template: `
     <a routerLink="/clubs" class="back">‹ Back to clubs</a>
 
@@ -21,20 +25,36 @@ import { ClubDetail } from '../../core/models';
           <h1 class="title">{{ c.name }}</h1>
           <p class="crumb">{{ c.visibility | titlecase }} · owner {{ c.ownerUsername ? '@' + c.ownerUsername : '—' }} · {{ c.memberCount }} members</p>
         </div>
-        <span class="pill" [class]="c.removed ? 'banned' : 'active'">{{ c.removed ? 'Removed' : 'Active' }}</span>
+        <div class="head-r">
+          <span class="pill" [class]="c.removed ? 'banned' : 'active'">{{ c.removed ? 'Removed' : 'Active' }}</span>
+          @if (canEdit()) {
+            @if (c.removed) {
+              <button class="btn" (click)="restore(c)" [disabled]="busy()"><lucide-icon name="check" [size]="15" /> Restore club</button>
+            } @else {
+              <button class="btn danger" (click)="remove(c)" [disabled]="busy()"><lucide-icon name="ban" [size]="15" /> Remove club</button>
+            }
+          }
+        </div>
       </div>
 
       @if (c.description) { <div class="card desc">{{ c.description }}</div> }
 
       <div class="card" style="margin-top:18px">
         <div class="card-h"><h3>Members</h3><span class="hint">showing up to 50</span></div>
-        <ui-table [columns]="memberCols" [flush]="true" [empty]="c.members.length === 0" emptyText="No members.">
+        <ui-table [columns]="memberCols()" [flush]="true" [empty]="c.members.length === 0" emptyText="No members.">
           @for (m of c.members; track m.userId) {
             <tr>
-              <td>{{ m.username ? '@' + m.username : '#' + m.userId }}</td>
+              <td><a [routerLink]="['/users', m.userId]">{{ m.username ? '@' + m.username : '#' + m.userId }}</a></td>
               <td>{{ m.role | titlecase }}</td>
               <td><span class="pill" [class]="m.status === 'ACTIVE' ? 'active' : 'dismissed'">{{ m.status | titlecase }}</span></td>
               <td class="muted">{{ m.joinedAt ? (m.joinedAt | date: 'MMM d, y') : '—' }}</td>
+              @if (canEdit()) {
+                <td class="rowact">
+                  @if (m.role !== 'OWNER') {
+                    <button class="link danger" (click)="removeMember(c, m)" [disabled]="busy()">Remove</button>
+                  } @else { <span class="muted">—</span> }
+                </td>
+              }
             </tr>
           }
         </ui-table>
@@ -42,7 +62,7 @@ import { ClubDetail } from '../../core/models';
 
       <div class="card" style="margin-top:18px">
         <div class="card-h"><h3>Events</h3><span class="hint">showing up to 50</span></div>
-        <ui-table [columns]="eventCols" [flush]="true" [empty]="c.events.length === 0" emptyText="No events.">
+        <ui-table [columns]="eventCols()" [flush]="true" [empty]="c.events.length === 0" emptyText="No events.">
           @for (e of c.events; track e.id) {
             <tr>
               <td><b>{{ e.title }}</b></td>
@@ -50,6 +70,13 @@ import { ClubDetail } from '../../core/models';
               <td class="muted">{{ e.startsAt ? (e.startsAt | date: 'MMM d, y, HH:mm') : '—' }}</td>
               <td><span class="count">{{ e.rsvpCount }}</span></td>
               <td><span class="pill" [class]="e.removed ? 'banned' : 'active'">{{ e.removed ? 'Removed' : 'Active' }}</span></td>
+              @if (canEdit()) {
+                <td class="rowact">
+                  @if (!e.removed) {
+                    <button class="link danger" (click)="removeEvent(c, e)" [disabled]="busy()">Remove</button>
+                  } @else { <span class="muted">—</span> }
+                </td>
+              }
             </tr>
           }
         </ui-table>
@@ -60,31 +87,94 @@ import { ClubDetail } from '../../core/models';
     .back { display: inline-block; color: var(--muted); font-size: 13px; margin-bottom: 16px; }
     .back:hover { color: var(--ink); }
     .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .head-r { display: flex; align-items: center; gap: 12px; }
     .title { font-family: var(--sans); font-weight: 800; font-size: 22px; margin: 0 0 4px; letter-spacing: -0.02em; }
     .crumb { color: var(--muted-2); font-size: 12px; margin: 0; }
     .desc { font-size: 13.5px; color: var(--ink-2); line-height: 1.6; }
     .count { font-weight: 700; }
+    .btn { display: inline-flex; align-items: center; gap: 7px; }
+    .rowact { text-align: right; white-space: nowrap; }
+    .link { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+    .link.danger { color: var(--rose); } .link.danger:hover { text-decoration: underline; }
   `,
 })
 export class ClubDetailComponent implements OnInit {
   private readonly api = inject(ClubsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly auth = inject(AuthService);
+  private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
 
   readonly club = signal<ClubDetail | null>(null);
   readonly error = signal<string | null>(null);
+  readonly busy = signal(false);
 
-  readonly memberCols: TableColumn[] = [
-    { label: 'Member' }, { label: 'Role' }, { label: 'Status' }, { label: 'Joined' },
-  ];
-  readonly eventCols: TableColumn[] = [
-    { label: 'Event' }, { label: 'Kind' }, { label: 'Starts' }, { label: 'RSVPs' }, { label: 'Status' },
-  ];
+  readonly canEdit = computed(() => this.auth.can('CLUBS:EDIT'));
+  readonly memberCols = computed<TableColumn[]>(() => {
+    const cols: TableColumn[] = [{ label: 'Member' }, { label: 'Role' }, { label: 'Status' }, { label: 'Joined' }];
+    return this.canEdit() ? [...cols, { label: '', align: 'right' }] : cols;
+  });
+  readonly eventCols = computed<TableColumn[]>(() => {
+    const cols: TableColumn[] = [{ label: 'Event' }, { label: 'Kind' }, { label: 'Starts' }, { label: 'RSVPs' }, { label: 'Status' }];
+    return this.canEdit() ? [...cols, { label: '', align: 'right' }] : cols;
+  });
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  private load(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.api.detail(id).subscribe({
       next: (c) => this.club.set(c),
       error: () => this.error.set('Could not load this club.'),
+    });
+  }
+
+  async remove(c: ClubDetail): Promise<void> {
+    const res = await this.confirm.confirm({
+      title: `Remove "${c.name}"?`,
+      message: 'The club is hidden from members. You can restore it later.',
+      confirmLabel: 'Remove club',
+      tone: 'danger',
+      input: { label: 'Reason (optional)', placeholder: 'Why is this club being removed?', multiline: true },
+    });
+    if (!res.confirmed) { return; }
+    this.run(this.api.remove(c.id, res.value ?? null), 'Club removed.');
+  }
+
+  restore(c: ClubDetail): void {
+    this.run(this.api.restore(c.id), 'Club restored.');
+  }
+
+  async removeMember(c: ClubDetail, m: { userId: number | null; username: string | null }): Promise<void> {
+    if (m.userId == null) { return; }
+    const res = await this.confirm.confirm({
+      title: `Remove ${m.username ? '@' + m.username : 'member #' + m.userId}?`,
+      message: 'They are removed from this club.',
+      confirmLabel: 'Remove member',
+      tone: 'danger',
+    });
+    if (!res.confirmed) { return; }
+    this.run(this.api.removeMember(c.id, m.userId), 'Member removed.');
+  }
+
+  async removeEvent(c: ClubDetail, e: { id: number; title: string }): Promise<void> {
+    const res = await this.confirm.confirm({
+      title: `Remove event "${e.title}"?`,
+      confirmLabel: 'Remove event',
+      tone: 'danger',
+      input: { label: 'Reason (optional)', placeholder: 'Why is this event being removed?' },
+    });
+    if (!res.confirmed) { return; }
+    this.run(this.api.removeEvent(c.id, e.id, res.value ?? null), 'Event removed.');
+  }
+
+  private run(obs: ReturnType<ClubsApi['detail']>, okMsg: string): void {
+    this.busy.set(true);
+    obs.subscribe({
+      next: (c) => { this.busy.set(false); this.club.set(c); this.toast.success(okMsg); },
+      error: () => { this.busy.set(false); this.toast.error('Action failed — check the admin API / internal hook.'); },
     });
   }
 }

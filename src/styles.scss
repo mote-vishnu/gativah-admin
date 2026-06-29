@@ -14,6 +14,7 @@
   --sel-line: var(--brand-line);
   --r: 16px;
   --r-sm: 11px;
+  --r-lg: 22px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Display now unified on Inter (Bricolage dropped for an even, dashboard look). */
@@ -28,6 +29,7 @@
   --surface-2: #141417;
   --surface-3: #1b1b1f;
   --card: linear-gradient(180deg, #101013, #0a0a0c);
+  --card-hover: linear-gradient(180deg, #141417, #0c0c0e);
   --gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 38%);
   --glass: rgba(6, 6, 8, 0.72);
   --line: #26262c;
@@ -54,6 +56,7 @@
   --surface-2: #f3f3f5;
   --surface-3: #eaeaed;
   --card: linear-gradient(180deg, #fff, #fcfcfd);
+  --card-hover: linear-gradient(180deg, #fff, #fafafb);
   --gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 40%);
   --glass: rgba(255, 255, 255, 0.78);
   --line: #e5e5e9;
@@ -90,7 +93,7 @@ body {
 a { color: inherit; text-decoration: none; }
 .mono { font-family: var(--mono); }
 
-/* cards */
+/* cards — a subtle top gloss sheen (premium) sits above the surface, content above that */
 .card {
   position: relative;
   background: var(--card);
@@ -98,6 +101,21 @@ a { color: inherit; text-decoration: none; }
   border-radius: var(--r);
   padding: 22px;
   box-shadow: var(--shadow);
+  transition: transform 0.22s var(--ease), border-color 0.22s var(--ease), background 0.22s var(--ease);
+}
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r);
+  background: var(--gloss);
+  pointer-events: none;
+}
+.card > * { position: relative; }
+.card.hover:hover, a.card:hover {
+  transform: translateY(-3px);
+  background: var(--card-hover);
+  border-color: var(--line-strong);
 }
 .card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 10px; }
 .card-h h3 { font-family: var(--sans); font-weight: 700; font-size: 15px; margin: 0; letter-spacing: -0.01em; }
@@ -167,6 +185,22 @@ tbody tr.clickable:hover td { background: var(--surface-2); }
 .pager .pg { display: flex; gap: 7px; }
 .pager .pg button { background: var(--surface); border: 1px solid var(--line); color: var(--muted); min-width: 32px; height: 32px; border-radius: 9px; cursor: pointer; }
 .pager .pg button:disabled { opacity: 0.4; cursor: default; }
+
+/* segmented sub-tabs (premium tab switcher — use instead of a chip row for view/tab toggles) */
+.subtabs { display: inline-flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 4px; }
+.subtabs button { border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: 0.15s var(--ease); font-family: inherit; }
+.subtabs button:hover { color: var(--ink); }
+.subtabs button.on { background: var(--sel-soft); color: var(--sel); box-shadow: inset 0 0 0 1px var(--sel-line); }
+
+/* connector timeline (vertical rail + dots) for activity / custody / decision logs */
+.timeline { position: relative; padding-left: 22px; }
+.timeline::before { content: ""; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+.tl { position: relative; padding: 0 0 16px; }
+.tl:last-child { padding-bottom: 0; }
+.tl::before { content: ""; position: absolute; left: -19px; top: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px var(--card); }
+.tl.muted-dot::before { background: var(--muted-2); }
+.tl .when { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); }
+.tl .what { font-size: 12.5px; margin-top: 2px; }
 
 /* misc */
 .muted { color: var(--muted); }
