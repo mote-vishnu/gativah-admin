@@ -6,8 +6,11 @@ import { API_BASE_URL } from './environment';
 import {
   FinanceOverview,
   FinanceRevenueResponse,
+  MrrMovement,
   Page,
+  PayoutsResponse,
   SubscriptionRow,
+  TransactionDetail,
   TransactionRow,
   WebhookHealth,
 } from './models';
@@ -19,6 +22,14 @@ export class FinanceApi {
 
   overview(): Observable<FinanceOverview> {
     return this.http.get<FinanceOverview>(`${this.base}/overview`);
+  }
+
+  mrrMovement(): Observable<MrrMovement> {
+    return this.http.get<MrrMovement>(`${this.base}/mrr-movement`);
+  }
+
+  payouts(windowDays = 30): Observable<PayoutsResponse> {
+    return this.http.get<PayoutsResponse>(`${this.base}/payouts`, { params: new HttpParams().set('windowDays', windowDays) });
   }
 
   revenue(granularity = 'month', groupBy?: string | null, from?: string | null, to?: string | null): Observable<FinanceRevenueResponse> {
@@ -36,6 +47,10 @@ export class FinanceApi {
     if (opts.country) params = params.set('country', opts.country);
     if (opts.sort) params = params.set('sort', opts.sort);
     return this.http.get<Page<TransactionRow>>(`${this.base}/transactions`, { params });
+  }
+
+  transaction(id: number): Observable<TransactionDetail> {
+    return this.http.get<TransactionDetail>(`${this.base}/transactions/${id}`);
   }
 
   subscriptions(opts: { state?: string | null; sort?: string | null; page?: number; size?: number }): Observable<Page<SubscriptionRow>> {

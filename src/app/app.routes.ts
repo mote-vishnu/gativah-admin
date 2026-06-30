@@ -75,6 +75,11 @@ export const routes: Routes = [
             loadComponent: () => import('./features/moderation/moderation-history').then((m) => m.ModerationHistoryComponent),
           },
           {
+            path: 'region-bans',
+            canActivate: [permissionGuard('GRIEVANCES:VIEW')],
+            loadComponent: () => import('./features/moderation/region-bans').then((m) => m.RegionBansComponent),
+          },
+          {
             path: ':id',
             canActivate: [permissionGuard('GRIEVANCES:VIEW')],
             loadComponent: () => import('./features/moderation/report-detail').then((m) => m.ReportDetailComponent),

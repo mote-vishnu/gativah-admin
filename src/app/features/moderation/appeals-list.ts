@@ -1,6 +1,7 @@
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { SelectComponent, SelectOption } from '../../shared/forms';
 import { PageHeaderComponent } from '../../shared/page-header';
@@ -21,7 +22,7 @@ const STATUS_OPTIONS: SelectOption[] = [
 @Component({
   selector: 'app-appeals-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, TitleCasePipe, SelectComponent, PageHeaderComponent, TableComponent, PaginatorComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, RouterLink, SelectComponent, PageHeaderComponent, TableComponent, PaginatorComponent],
   template: `
     <ui-page-header icon="scale" title="Appeals" subtitle="User appeals against moderation actions" tint="violet" [count]="page()?.totalElements ?? null" />
 
@@ -36,8 +37,15 @@ const STATUS_OPTIONS: SelectOption[] = [
       @for (a of page()?.content ?? []; track a.id) {
         <tr>
           <td class="mono">#{{ a.id }}</td>
-          <td>{{ a.subjectUserId }}</td>
-          <td>{{ a.relatedReportId ? 'Report #' + a.relatedReportId : (a.relatedActionId ? 'Action #' + a.relatedActionId : '—') }}</td>
+          <td>
+            @if (a.subjectUsername) { <a [routerLink]="['/users', a.subjectUserId]">{{ '@' + a.subjectUsername }}</a> }
+            @else { #{{ a.subjectUserId }} }
+          </td>
+          <td>
+            @if (a.originalAction) { <span class="pill" [class]="actionClass(a.originalAction)">{{ a.originalAction | titlecase }}</span> }
+            @else if (a.relatedReportId) { Report #{{ a.relatedReportId }} }
+            @else { <span class="muted">—</span> }
+          </td>
           <td class="msg"><span class="muted">{{ a.message }}</span></td>
           <td><span class="pill" [class]="statusClass(a.status)">{{ a.status | titlecase }}</span></td>
           <td class="muted">{{ a.createdAt | date: 'MMM d, y' }}</td>
@@ -86,7 +94,7 @@ export class AppealsListComponent implements OnInit {
   readonly canEdit = computed(() => this.auth.can('APPEALS:EDIT'));
   readonly columns = computed<TableColumn[]>(() => {
     const cols: TableColumn[] = [
-      { label: 'Appeal' }, { label: 'User' }, { label: 'Against' }, { label: 'Message' }, { label: 'Status' }, { label: 'Submitted' },
+      { label: 'Appeal' }, { label: 'User' }, { label: 'Original action' }, { label: 'Message' }, { label: 'Status' }, { label: 'Submitted' },
     ];
     return this.canEdit() ? [...cols, { label: '', align: 'right' }] : cols;
   });
@@ -130,5 +138,15 @@ export class AppealsListComponent implements OnInit {
     if (s === 'GRANTED') { return 'resolved'; }
     if (s === 'DENIED') { return 'dismissed'; }
     return 'pending';
+  }
+
+  actionClass(a: string): string {
+    switch (a) {
+      case 'BAN': case 'TAKEDOWN': return 'banned';
+      case 'SUSPEND': return 'pending';
+      case 'WARN': return 'review';
+      case 'DISMISS': return 'dismissed';
+      default: return 'reason';
+    }
   }
 }

@@ -16,6 +16,8 @@ import {
   ModerationActionRow,
   Page,
   ReasonCount,
+  RegionBanRow,
+  ReportStats,
   ReportDetail,
   ReportSummary,
   ResolveRequest,
@@ -65,6 +67,18 @@ export class ModerationApi {
 
   byReason(): Observable<{ items: ReasonCount[] }> {
     return this.http.get<{ items: ReasonCount[] }>(`${this.base}/reports/by-reason`);
+  }
+
+  stats(): Observable<ReportStats> {
+    return this.http.get<ReportStats>(`${this.base}/reports/stats`);
+  }
+
+  regionBans(): Observable<{ items: RegionBanRow[] }> {
+    return this.http.get<{ items: RegionBanRow[] }>(`${this.base}/region-bans`);
+  }
+
+  liftRegionBan(id: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/region-bans/${id}/lift`, {});
   }
 
   timeline(id: number): Observable<{ items: ModerationActionRow[] }> {

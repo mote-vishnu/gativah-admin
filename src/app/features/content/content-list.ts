@@ -66,7 +66,7 @@ const STATUS_OPTIONS: SelectOption[] = [
         <ui-paginator [pageIndex]="pageIndex()" [totalPages]="page()?.totalPages ?? 0" [totalElements]="page()?.totalElements ?? 0" unit="item" (pageChange)="goTo($event)" />
       }
       @case ('stories') {
-        <ui-table [columns]="storyCols" [loading]="loading()" [empty]="(stories()?.content?.length ?? 0) === 0" emptyText="No stories found.">
+        <ui-table [columns]="storyCols()" [loading]="loading()" [empty]="(stories()?.content?.length ?? 0) === 0" emptyText="No stories found.">
           @for (s of stories()?.content ?? []; track s.id) {
             <tr>
               <td>{{ s.authorUsername ? '@' + s.authorUsername : '#' + s.authorUserId }}</td>
@@ -76,6 +76,13 @@ const STATUS_OPTIONS: SelectOption[] = [
               <td><span class="count">{{ s.reactionCount }}</span></td>
               <td><span class="pill" [class]="storyClass(s)">{{ storyStatus(s) }}</span></td>
               <td class="muted">{{ s.createdAt | date: 'MMM d, HH:mm' }}</td>
+              @if (canEdit()) {
+                <td class="rowact">
+                  @if (!s.removed) {
+                    <button class="btn tiny danger" (click)="takedownStory(s)" [disabled]="busy()"><lucide-icon name="flag" [size]="13" /> Take down</button>
+                  } @else { <span class="muted">—</span> }
+                </td>
+              }
             </tr>
           }
         </ui-table>
@@ -127,9 +134,12 @@ export class ContentListComponent implements OnInit {
     ];
     return this.canEdit() ? [...cols, { label: '', align: 'right' }] : cols;
   });
-  readonly storyCols: TableColumn[] = [
-    { label: 'Author' }, { label: 'Kind' }, { label: 'Preview' }, { label: 'Views' }, { label: 'Reactions' }, { label: 'Status' }, { label: 'Created' },
-  ];
+  readonly storyCols = computed<TableColumn[]>(() => {
+    const cols: TableColumn[] = [
+      { label: 'Author' }, { label: 'Kind' }, { label: 'Preview' }, { label: 'Views' }, { label: 'Reactions' }, { label: 'Status' }, { label: 'Created' },
+    ];
+    return this.canEdit() ? [...cols, { label: '', align: 'right' }] : cols;
+  });
 
   ngOnInit(): void {
     this.view.set((this.route.snapshot.data['view'] as 'content' | 'stories') ?? 'content');
@@ -175,6 +185,22 @@ export class ContentListComponent implements OnInit {
   storyClass(s: StoryRow): string {
     const st = this.storyStatus(s);
     return st === 'Removed' ? 'banned' : st === 'Expired' ? 'dismissed' : 'active';
+  }
+
+  async takedownStory(s: StoryRow): Promise<void> {
+    const res = await this.confirm.confirm({
+      title: 'Take down this story?',
+      message: 'The story is removed and the action is written to the audit log.',
+      confirmLabel: 'Take down',
+      tone: 'danger',
+      input: { label: 'Reason (optional)', placeholder: 'e.g. nudity / harassment', multiline: true },
+    });
+    if (!res.confirmed) { return; }
+    this.busy.set(true);
+    this.api.takedown('STORY', s.id, { reason: res.value ?? '' }).subscribe({
+      next: () => { this.busy.set(false); this.toast.success('Story removed.'); this.loadStories(); },
+      error: () => { this.busy.set(false); this.toast.error('Takedown failed — check the admin API / internal hook.'); },
+    });
   }
 
   async takedown(r: ContentRow): Promise<void> {

@@ -3,7 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
-import { InputComponent, SelectComponent, SelectOption, TextareaComponent } from '../../shared/forms';
+import { DateComponent, InputComponent, SelectComponent, SelectOption, TextareaComponent } from '../../shared/forms';
 import { TableColumn, TableComponent } from '../../shared/table';
 import { LegalApi } from '../../core/admin.api';
 import { AuthService } from '../../core/auth.service';
@@ -28,7 +28,7 @@ const DIRECTION_OPTIONS: SelectOption[] = [
   standalone: true,
   imports: [
     FormsModule, DatePipe, TitleCasePipe, RouterLink,
-    InputComponent, SelectComponent, TextareaComponent, TableComponent,
+    InputComponent, SelectComponent, TextareaComponent, DateComponent, TableComponent,
   ],
   template: `
     <a routerLink="/legal" class="back">‹ Back to legal requests</a>
@@ -95,7 +95,7 @@ const DIRECTION_OPTIONS: SelectOption[] = [
             @if (canEdit()) {
               <div class="addrow">
                 <ui-input placeholder="New task…" [(ngModel)]="taskDraft.title" />
-                <ui-input type="date" [(ngModel)]="taskDraft.dueAt" />
+                <ui-date [(ngModel)]="taskDraft.dueAt" />
                 <button class="btn" (click)="addTask()" [disabled]="busy() || !taskDraft.title.trim()">Add</button>
               </div>
             }

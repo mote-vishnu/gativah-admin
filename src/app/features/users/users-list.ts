@@ -1,7 +1,7 @@
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { InputComponent, MultiSelectComponent, SelectOption } from '../../shared/forms';
 import { IconComponent } from '../../shared/icon';
@@ -80,6 +80,7 @@ const STATUS_OPTIONS: SelectOption[] = [
 export class UsersListComponent implements OnInit {
   private readonly api = inject(UsersApi);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly exporter = inject(ExportService);
   private readonly toast = inject(ToastService);
 
@@ -98,11 +99,36 @@ export class UsersListComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    // Hydrate filters from the URL so the list is shareable / survives refresh + back.
+    const qp = this.route.snapshot.queryParamMap;
+    this.q = qp.get('q') ?? '';
+    this.statusSel = qp.get('status') ? qp.get('status')!.split(',').filter(Boolean) : [];
+    const sort = qp.get('sort');
+    if (sort) {
+      const [key, dir] = sort.split(',');
+      if (key) { this.sort.set({ key, dir: dir === 'desc' ? 'desc' : 'asc' }); }
+    }
+    this.pageIndex.set(Math.max(0, Number(qp.get('page') ?? 0)));
     this.load();
+  }
+
+  private syncUrl(): void {
+    const s = this.sort();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      replaceUrl: true,
+      queryParams: {
+        q: this.q.trim() || null,
+        status: this.statusSel.length ? this.statusSel.join(',') : null,
+        sort: s ? `${s.key},${s.dir}` : null,
+        page: this.pageIndex() || null,
+      },
+    });
   }
 
   private load(): void {
     this.loading.set(true);
+    this.syncUrl();
     const s = this.sort();
     this.api.list({
       q: this.q.trim() || null,

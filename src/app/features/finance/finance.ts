@@ -1,4 +1,4 @@
-import { DatePipe, TitleCasePipe } from '@angular/common';
+import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -13,7 +13,10 @@ import { ToastService } from '../../shared/toast/toast.service';
 import {
   FinanceOverview,
   FinanceRevenueResponse,
+  MrrMovement,
   Page,
+  PayoutsResponse,
+  TransactionDetail,
   SubscriptionRow,
   TransactionRow,
   WebhookHealth,
@@ -25,7 +28,7 @@ type View = 'dashboard' | 'history';
 @Component({
   selector: 'app-finance',
   standalone: true,
-  imports: [FormsModule, DatePipe, TitleCasePipe, IconComponent, SelectComponent, DateRangeComponent, TableComponent, PaginatorComponent, ChartComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, TitleCasePipe, IconComponent, SelectComponent, DateRangeComponent, TableComponent, PaginatorComponent, ChartComponent],
   template: `
     <h1 class="title">{{ title() }}</h1>
     <p class="crumb">{{ subtitle() }}</p>
@@ -33,11 +36,18 @@ type View = 'dashboard' | 'history';
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
     @if (view() === 'dashboard') {
-      <div class="row g4">
-        <div class="card kpi"><div class="lab"><span class="ic tint-orange"><lucide-icon name="dollar-sign" [size]="16" /></span> MRR</div><div class="val">{{ money(ov()?.mrr) }}</div><div class="delta flat">ARR {{ money(ov()?.arr) }}</div></div>
-        <div class="card kpi"><div class="lab"><span class="ic tint-green"><lucide-icon name="users" [size]="16" /></span> Active subs</div><div class="val">{{ ov()?.activeSubscribers ?? '—' }}</div><div class="delta flat">{{ ov()?.trialing ?? 0 }} trialing · {{ ov()?.inGrace ?? 0 }} grace</div></div>
-        <div class="card kpi"><div class="lab"><span class="ic tint-cyan"><lucide-icon name="receipt-text" [size]="16" /></span> Gross · MTD</div><div class="val">{{ money(ov()?.grossMtd) }}</div><div class="delta flat">net {{ money(ov()?.netMtd) }}</div></div>
-        <div class="card kpi"><div class="lab"><span class="ic tint-rose"><lucide-icon name="credit-card" [size]="16" /></span> Refunds · MTD</div><div class="val">{{ money(ov()?.refundsMtd) }}</div><div class="delta flat">{{ ov()?.canceled30d ?? 0 }} canceled 30d</div></div>
+      <div class="row g5">
+        <div class="card kpi"><div class="lab"><span class="ic tint-orange"><lucide-icon name="dollar-sign" [size]="16" /></span> MRR</div><div class="val c-orange">{{ money(ov()?.mrr) }}</div><div class="delta flat">ARR {{ money(ov()?.arr) }}</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-green"><lucide-icon name="users" [size]="16" /></span> Active subs</div><div class="val c-green">{{ ov()?.activeSubscribers ?? '—' }}</div>
+          <div class="delta" [class.up]="(ov()?.newSubs30d ?? 0) > 0">@if ((ov()?.newSubs30d ?? 0) > 0) { ▲ }{{ ov()?.newSubs30d ?? 0 }} new · 30d</div>
+        </div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-cyan"><lucide-icon name="receipt-text" [size]="16" /></span> Gross · MTD</div><div class="val c-cyan">{{ money(ov()?.grossMtd) }}</div>
+          @if (ov()?.grossTrendPct != null) {
+            <div class="delta" [class.up]="ov()!.grossTrendPct! >= 0" [class.down]="ov()!.grossTrendPct! < 0">{{ ov()!.grossTrendPct! >= 0 ? '▲' : '▼' }} {{ abs(ov()!.grossTrendPct!) }}% · vs prior 30d</div>
+          } @else { <div class="delta flat">net {{ money(ov()?.netMtd) }}</div> }
+        </div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-violet"><lucide-icon name="receipt-text" [size]="16" /></span> Churn · 30d</div><div class="val c-violet" [class.bad]="(ov()?.churnRate ?? 0) >= 5">{{ ov()?.churnRate ?? 0 }}%</div><div class="delta flat">{{ ov()?.canceled30d ?? 0 }} canceled</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-rose"><lucide-icon name="credit-card" [size]="16" /></span> Refunds · MTD</div><div class="val c-rose">{{ money(ov()?.refundsMtd) }}</div><div class="delta flat">net {{ money(ov()?.netMtd) }}</div></div>
       </div>
 
       <div class="note" style="margin-top:14px">Amounts are store-gross — Apple/Google commission isn't deducted. MRR uses plan display price.</div>
@@ -59,6 +69,60 @@ type View = 'dashboard' | 'history';
           <div class="empty">Loading revenue…</div>
         }
       </div>
+
+      @if (mm(); as m) {
+        <div class="card" style="margin-top:18px">
+          <div class="card-h"><h3>MRR movement</h3><span class="hint">trailing 30 days · estimate</span></div>
+          <div class="mrrflow">
+            <div class="step"><span class="lbl">Start</span><b>{{ money(m.start) }}</b></div>
+            <div class="op">+</div>
+            <div class="step up"><span class="lbl">New</span><b>{{ money(m.added) }}</b></div>
+            <div class="op">−</div>
+            <div class="step down"><span class="lbl">Churned</span><b>{{ money(m.churned) }}</b></div>
+            <div class="op">=</div>
+            <div class="step end"><span class="lbl">End</span><b>{{ money(m.end) }}</b></div>
+          </div>
+          <div class="wbar">
+            <div class="seg base" [style.width.%]="barPct(m.start, m)"></div>
+            <div class="seg add" [style.width.%]="barPct(m.added, m)"></div>
+          </div>
+          <div class="note" style="margin-top:14px">⚠ Estimated from subscription start/cancel dates × normalized plan price. Expansion / contraction / reactivation aren't split out (no plan-change history).</div>
+        </div>
+      }
+
+      @if (pay(); as p) {
+        <div class="card" style="margin-top:18px">
+          <div class="card-h"><h3>Estimated payouts by store</h3><span class="hint">trailing {{ p.windowDays }} days · net of commission</span></div>
+          <table class="payouts">
+            <thead><tr><th>Store</th><th class="r">Gross</th><th class="r">Refunds</th><th class="r">Net</th><th class="r">Fee</th><th class="r">Commission</th><th class="r">Est. payout</th></tr></thead>
+            <tbody>
+              @for (r of p.platforms; track r.platform) {
+                <tr>
+                  <td><span class="plat">{{ r.platform }}</span><span class="cnt">{{ r.txnCount }} txn</span></td>
+                  <td class="r">{{ money(r.gross) }}</td>
+                  <td class="r neg">{{ r.refunds > 0 ? '−' + money(r.refunds) : '—' }}</td>
+                  <td class="r">{{ money(r.netGross) }}</td>
+                  <td class="r dim">{{ (r.commissionRate * 100) | number:'1.0-1' }}%</td>
+                  <td class="r neg">−{{ money(r.commission) }}</td>
+                  <td class="r"><b>{{ money(r.payout) }}</b></td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td class="r">{{ money(p.grossTotal) }}</td>
+                <td class="r neg">{{ p.refundTotal > 0 ? '−' + money(p.refundTotal) : '—' }}</td>
+                <td class="r">{{ money(p.netGrossTotal) }}</td>
+                <td class="r dim">—</td>
+                <td class="r neg">−{{ money(p.commissionTotal) }}</td>
+                <td class="r"><b>{{ money(p.payoutTotal) }}</b></td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="note" style="margin-top:14px">⚠ Commission is an estimate (Apple/Google 30%, web 2.9%). Actual fees vary by program (small-business / post-year-1 = 15%), currency conversion, and regional tax — reconcile against store payout reports.</div>
+        </div>
+      }
 
       <div class="row g2" style="margin-top:18px">
         <div class="card">
@@ -104,7 +168,7 @@ type View = 'dashboard' | 'history';
             <ui-table [columns]="txnCols" [empty]="(txns()?.content?.length ?? 0) === 0" emptyText="No transactions."
                       [sort]="txnSort()" (sortChange)="onTxnSort($event)">
               @for (t of txns()?.content ?? []; track t.id) {
-                <tr>
+                <tr class="clickable" (click)="openTxn(t.id)">
                   <td class="mono">#{{ t.id }}</td>
                   <td>{{ t.userId }}</td>
                   <td>{{ t.planCode }}</td>
@@ -159,6 +223,79 @@ type View = 'dashboard' | 'history';
         }
       </div>
     }
+
+    @if (txnDetail(); as d) {
+      <div class="drawer-scrim" (click)="closeTxn()"></div>
+      <aside class="drawer" role="dialog" aria-label="Transaction detail">
+        <header class="drawer-h">
+          <div>
+            <span class="pill" [class]="txnClass(d.type)">{{ d.type | titlecase }}</span>
+            <h2>Transaction #{{ d.id }}</h2>
+          </div>
+          <button class="iconbtn" (click)="closeTxn()" aria-label="Close"><lucide-icon name="x" [size]="18" /></button>
+        </header>
+
+        <div class="drawer-amt">
+          <div class="big" [class.neg]="isNegative(d.type)">{{ isNegative(d.type) ? '−' : '' }}{{ amount(d.grossAmount, d.grossCurrency) }}</div>
+          <span class="pill" [class]="statusClass(d.status)">{{ d.status | titlecase }}</span>
+          @if (d.environment) { <span class="env">{{ d.environment }}</span> }
+        </div>
+
+        <section class="dl">
+          <div class="r"><span>User</span><b>{{ d.userId ?? '—' }}</b></div>
+          <div class="r"><span>Product</span><b>{{ d.planCode }} <small class="muted">{{ d.productId }}</small></b></div>
+          <div class="r"><span>Platform</span><b>{{ d.platform }}</b></div>
+          <div class="r"><span>Country</span><b>{{ d.countryCode ?? '—' }}</b></div>
+          <div class="r"><span>Source</span><b>{{ d.source ?? '—' }}</b></div>
+          <div class="r"><span>Purchased</span><b>{{ (d.purchasedAt | date: 'MMM d, y · HH:mm') ?? '—' }}</b></div>
+          <div class="r"><span>Period</span><b>{{ (d.periodStart | date: 'MMM d') ?? '—' }} → {{ (d.periodEnd | date: 'MMM d, y') ?? '—' }}</b></div>
+          <div class="r"><span>Created</span><b>{{ (d.createdAt | date: 'MMM d, y · HH:mm') ?? '—' }}</b></div>
+          <div class="r"><span>Store txn</span><b class="mono">{{ d.storeTransactionId ?? '—' }}</b></div>
+          <div class="r"><span>Original txn</span><b class="mono">{{ d.originalTransactionId ?? '—' }}</b></div>
+          <div class="r"><span>Notification</span><b class="mono">{{ d.notificationUuid ?? '—' }}</b></div>
+        </section>
+
+        @if (d.subscription; as s) {
+          <h4 class="drawer-sub">Subscription</h4>
+          <section class="dl">
+            <div class="r"><span>Sub ID</span><b class="mono">#{{ s.id }}</b></div>
+            <div class="r"><span>State</span><b><span class="pill" [class]="subClass(s.state)">{{ s.state | titlecase }}</span></b></div>
+            <div class="r"><span>Auto-renew</span><b>{{ s.autoRenew ? 'On' : 'Off' }}</b></div>
+            <div class="r"><span>Renews</span><b>{{ (s.currentPeriodEnd | date: 'MMM d, y') ?? '—' }}</b></div>
+          </section>
+        }
+
+        @if (d.relatedTxns.length) {
+          <h4 class="drawer-sub">Transaction chain ({{ d.relatedTxns.length }})</h4>
+          <section class="chain">
+            @for (r of d.relatedTxns; track r.id) {
+              <button class="chain-row clickable" (click)="openTxn(r.id)">
+                <span class="pill sm" [class]="txnClass(r.type)">{{ r.type | titlecase }}</span>
+                <span class="ca">{{ isNegative(r.type) ? '−' : '' }}{{ amount(r.grossAmount, r.grossCurrency) }}</span>
+                <span class="cd muted">{{ r.purchasedAt | date: 'MMM d, y' }}</span>
+              </button>
+            }
+          </section>
+        }
+
+        @if (d.events.length) {
+          <h4 class="drawer-sub">Webhook events ({{ d.events.length }})</h4>
+          <section class="events">
+            @for (e of d.events; track e.id) {
+              <div class="event">
+                <span class="dot" [class.ok]="e.status === 'PROCESSED'" [class.bad]="e.status === 'FAILED' || e.status === 'DEAD_LETTER'"></span>
+                <div class="ebody">
+                  <div class="et">{{ e.eventType }}@if (e.subtype) { <small> · {{ e.subtype }}</small> }</div>
+                  <div class="muted">{{ e.status | titlecase }} · {{ (e.receivedAt | date: 'MMM d, HH:mm') ?? '—' }}</div>
+                </div>
+              </div>
+            }
+          </section>
+        } @else {
+          <p class="muted" style="margin-top:14px; font-size:13px">No matched webhook events.</p>
+        }
+      </aside>
+    }
   `,
   styles: `
     .title { font-family: var(--sans); font-weight: 800; font-size: 22px; margin: 0 0 4px; letter-spacing: -0.02em; }
@@ -169,6 +306,53 @@ type View = 'dashboard' | 'history';
     .ffilters .spacer { flex: 1; }
     .ffilters .btn { display: inline-flex; align-items: center; gap: 7px; }
     b.neg { color: var(--rose); }
+    .mrrflow { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; }
+    .mrrflow .step { flex: 1; min-width: 120px; border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; background: var(--surface-2); }
+    .mrrflow .step .lbl { display: block; font-size: 11px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; }
+    .mrrflow .step b { font-family: var(--sans); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+    .mrrflow .step.up b { color: var(--green); } .mrrflow .step.down b { color: var(--rose); }
+    .mrrflow .step.end { border-color: var(--brand-line); }
+    .mrrflow .op { display: grid; place-items: center; font-size: 18px; color: var(--muted-2); font-weight: 700; }
+    .wbar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: var(--surface-3); margin-top: 14px; }
+    .wbar .seg.base { background: var(--brand); }
+    .wbar .seg.add { background: var(--green); }
+    table.payouts { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    table.payouts th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-2); padding: 8px 12px; border-bottom: 1px solid var(--line); font-weight: 600; }
+    table.payouts td { padding: 11px 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    table.payouts th.r, table.payouts td.r { text-align: right; }
+    table.payouts td.neg { color: var(--rose); } table.payouts td.dim { color: var(--muted-2); }
+    table.payouts .plat { font-weight: 600; }
+    table.payouts .cnt { display: block; font-size: 11px; color: var(--muted-2); }
+    table.payouts tfoot td { border-bottom: none; border-top: 1px solid var(--line); font-weight: 600; }
+    tr.clickable { cursor: pointer; } tr.clickable:hover { background: var(--surface-2); }
+    .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; animation: fade .15s ease; }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 92vw; background: var(--surface); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; padding: 22px; box-shadow: -12px 0 32px rgba(0,0,0,0.28); animation: slidein .2s ease; }
+    @keyframes fade { from { opacity: 0; } } @keyframes slidein { from { transform: translateX(24px); opacity: 0; } }
+    .drawer-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .drawer-h h2 { font-family: var(--sans); font-size: 19px; font-weight: 800; margin: 8px 0 0; letter-spacing: -0.01em; }
+    .iconbtn { background: none; border: 1px solid var(--line); border-radius: 9px; width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; color: var(--muted-1); }
+    .iconbtn:hover { background: var(--surface-2); }
+    .drawer-amt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 6px; }
+    .drawer-amt .big { font-family: var(--sans); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+    .drawer-amt .big.neg { color: var(--rose); }
+    .drawer-amt .env { font-size: 11px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+    .dl { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .dl .r { display: flex; justify-content: space-between; gap: 16px; padding: 9px 14px; font-size: 13px; }
+    .dl .r:nth-child(odd) { background: var(--surface-2); }
+    .dl .r span { color: var(--muted-2); flex-shrink: 0; } .dl .r b { text-align: right; word-break: break-all; }
+    .dl .r b small { font-weight: 400; }
+    .drawer-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); margin: 20px 0 8px; }
+    .chain { display: flex; flex-direction: column; gap: 6px; }
+    .chain-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; cursor: pointer; font: inherit; }
+    .chain-row:hover { border-color: var(--brand-line); }
+    .chain-row .ca { font-weight: 700; font-variant-numeric: tabular-nums; } .chain-row .cd { margin-left: auto; font-size: 12px; }
+    .pill.sm { font-size: 10px; padding: 1px 7px; }
+    .events { display: flex; flex-direction: column; gap: 2px; }
+    .event { display: flex; gap: 11px; padding: 9px 4px; border-bottom: 1px solid var(--line); }
+    .event .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: var(--muted-2); flex-shrink: 0; }
+    .event .dot.ok { background: var(--green); } .event .dot.bad { background: var(--rose); }
+    .event .et { font-size: 13px; font-weight: 600; } .event .et small { font-weight: 400; color: var(--muted-2); }
+    .event .muted { font-size: 12px; }
   `,
 })
 export class FinanceComponent implements OnInit {
@@ -212,6 +396,9 @@ export class FinanceComponent implements OnInit {
   };
 
   readonly ov = signal<FinanceOverview | null>(null);
+  readonly mm = signal<MrrMovement | null>(null);
+  readonly pay = signal<PayoutsResponse | null>(null);
+  readonly txnDetail = signal<TransactionDetail | null>(null);
   readonly rev = signal<FinanceRevenueResponse | null>(null);
   readonly gran = signal<'month' | 'day'>('month');
   readonly breakdownBy = signal<'product' | 'platform' | 'country' | 'currency'>('product');
@@ -293,6 +480,8 @@ export class FinanceComponent implements OnInit {
         next: (o) => this.ov.set(o),
         error: () => this.error.set('Could not load finance data — is the admin API running?'),
       });
+      this.api.mrrMovement().subscribe({ next: (m) => this.mm.set(m), error: () => {} });
+      this.api.payouts(30).subscribe({ next: (p) => this.pay.set(p), error: () => {} });
       this.loadRevenue();
     } else {
       this.tab.set((data['tab'] as Tab) ?? 'transactions');
@@ -374,6 +563,16 @@ export class FinanceComponent implements OnInit {
   txnGoTo(i: number): void { this.txnPage.set(i); this.loadTxns(); }
   subGoTo(i: number): void { this.subPage.set(i); this.loadSubs(); }
 
+  abs(v: number): number {
+    return Math.abs(v);
+  }
+
+  /** Bar width as a fraction of the larger of start/end (so the flow reads visually). */
+  barPct(v: number, m: MrrMovement): number {
+    const max = Math.max(m.start, m.end, 1);
+    return Math.min(100, (Math.max(v, 0) / max) * 100);
+  }
+
   money(v: number | null | undefined): string {
     return v == null ? '—' : '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
   }
@@ -395,6 +594,23 @@ export class FinanceComponent implements OnInit {
     if (state === 'TRIALING') return 'review';
     if (state === 'IN_GRACE_PERIOD') return 'pending';
     return 'dismissed';
+  }
+
+  statusClass(status: string): string {
+    if (status === 'VALID') return 'resolved';
+    if (status === 'PENDING') return 'pending';
+    return 'banned';
+  }
+
+  openTxn(id: number): void {
+    this.api.transaction(id).subscribe({
+      next: (d) => this.txnDetail.set(d),
+      error: () => this.toast.error('Could not load transaction detail.'),
+    });
+  }
+
+  closeTxn(): void {
+    this.txnDetail.set(null);
   }
 }
 

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
 import { DrawerComponent } from '../../shared/drawer';
-import { InputComponent, MultiSelectComponent, SelectComponent, SelectOption, TextareaComponent } from '../../shared/forms';
+import { DateComponent, InputComponent, MultiSelectComponent, SelectComponent, SelectOption, TextareaComponent } from '../../shared/forms';
 import { IconComponent } from '../../shared/icon';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
@@ -26,7 +26,7 @@ const SOURCE_OPTIONS: SelectOption[] = [
   standalone: true,
   imports: [
     FormsModule, DatePipe, TitleCasePipe, IconComponent, PageHeaderComponent,
-    InputComponent, SelectComponent, MultiSelectComponent, TextareaComponent,
+    InputComponent, SelectComponent, MultiSelectComponent, TextareaComponent, DateComponent,
     TableComponent, PaginatorComponent, DrawerComponent,
   ],
   template: `
@@ -90,7 +90,7 @@ const SOURCE_OPTIONS: SelectOption[] = [
     <ui-drawer [open]="grantOpen()" title="Grant comp entitlement" (closed)="grantOpen.set(false)">
       <ui-input label="User ID" type="number" placeholder="e.g. 42" [(ngModel)]="grant.userId" />
       <ui-select label="Entitlement" [options]="defOptions()" [(ngModel)]="grant.code" />
-      <ui-input label="Expires" type="date" hint="Leave blank for no expiry" [(ngModel)]="grant.expiresAt" />
+      <ui-date label="Expires" hint="Leave blank for no expiry" [(ngModel)]="grant.expiresAt" />
       <ui-textarea label="Reason" [rows]="2" placeholder="Why this comp is being granted…" [(ngModel)]="grant.reason" />
       <button drawer-footer class="btn" (click)="grantOpen.set(false)">Cancel</button>
       <button drawer-footer class="btn primary" (click)="submitGrant()" [disabled]="busy() || !grant.userId || !grant.code">Grant</button>

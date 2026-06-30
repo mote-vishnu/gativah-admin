@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
 import { appendMulti } from './http-params.util';
-import { ClubDetail, ClubSummary, Page } from './models';
+import { AuditEntryRow, ClubDetail, ClubStats, ClubSummary, Page } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ClubsApi {
@@ -20,9 +20,19 @@ export class ClubsApi {
     return this.http.get<Page<ClubSummary>>(this.base, { params });
   }
 
+  stats(): Observable<ClubStats> {
+    return this.http.get<ClubStats>(`${this.base}/stats`);
+  }
+
   detail(id: number): Observable<ClubDetail> {
     return this.http.get<ClubDetail>(`${this.base}/${id}`);
   }
+
+  audit(id: number, page = 0, size = 25): Observable<Page<AuditEntryRow>> {
+    const params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<Page<AuditEntryRow>>(`${this.base}/${id}/audit`, { params });
+  }
+
 
   remove(id: number, reason: string | null): Observable<ClubDetail> {
     return this.http.post<ClubDetail>(`${this.base}/${id}/remove`, { reason });

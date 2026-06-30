@@ -3,14 +3,16 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import { InputComponent, MultiSelectComponent, SelectOption } from '../../shared/forms';
+import { MultiSelectComponent, SelectOption } from '../../shared/forms';
+import { SearchBarComponent } from '../../shared/search-bar.component';
+import { ErrorBannerComponent } from '../../shared/feedback';
 import { IconComponent } from '../../shared/icon';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { PaginatorComponent, SortState, TableColumn, TableComponent } from '../../shared/table';
 import { ClubsApi } from '../../core/clubs.api';
 import { ExportService } from '../../core/export.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ClubSummary, Page } from '../../core/models';
+import { ClubStats, ClubSummary, Page } from '../../core/models';
 
 const VISIBILITY_OPTIONS: SelectOption[] = [
   { value: 'PUBLIC', label: 'Public' },
@@ -24,7 +26,7 @@ const STATUS_OPTIONS: SelectOption[] = [
 @Component({
   selector: 'app-clubs-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, TitleCasePipe, InputComponent, MultiSelectComponent, IconComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
+  imports: [FormsModule, DatePipe, TitleCasePipe, SearchBarComponent, ErrorBannerComponent, MultiSelectComponent, IconComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
   template: `
     <ui-page-header icon="users-round" title="Clubs" subtitle="Community directory"
                     tint="green" [count]="page()?.totalElements ?? null">
@@ -33,13 +35,23 @@ const STATUS_OPTIONS: SelectOption[] = [
       </button>
     </ui-page-header>
 
+    @if (stats(); as st) {
+      <div class="row g5" style="margin-bottom:18px">
+        <div class="card kpi"><div class="lab"><span class="ic tint-green"><lucide-icon name="users-round" [size]="16" /></span> Clubs</div><div class="val c-green">{{ st.totalClubs }}</div><div class="delta flat">{{ st.activeClubs }} active · {{ st.removedClubs }} removed</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-cyan"><lucide-icon name="users" [size]="16" /></span> Members</div><div class="val c-cyan">{{ st.totalMembers }}</div><div class="delta flat">avg {{ st.avgMembers }} · largest {{ st.largestClubMembers }}</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-violet"><lucide-icon name="shield-check" [size]="16" /></span> Private</div><div class="val c-violet">{{ st.privateClubs }}</div><div class="delta flat">of {{ st.totalClubs }} clubs</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-amber"><lucide-icon name="calendar" [size]="16" /></span> Upcoming events</div><div class="val c-amber">{{ st.upcomingEvents }}</div><div class="delta flat">scheduled ahead</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-orange"><lucide-icon name="plus-circle" [size]="16" /></span> New · 30d</div><div class="val c-orange">{{ st.newClubs30d }}</div><div class="delta flat">created recently</div></div>
+      </div>
+    }
+
     <div class="toolbar">
-      <div class="search"><ui-input placeholder="Search club name…" [(ngModel)]="q" (enter)="search()" /></div>
+      <div class="search"><ui-search-bar placeholder="Search club name…" [(ngModel)]="q" (search)="onSearch($event)" /></div>
       <div class="filt"><ui-multiselect placeholder="All visibility" [options]="visibilityOptions" [(ngModel)]="visibilitySel" (ngModelChange)="applyFilter()" /></div>
       <div class="filt"><ui-multiselect placeholder="All statuses" [options]="statusOptions" [(ngModel)]="statusSel" (ngModelChange)="applyFilter()" /></div>
     </div>
 
-    @if (error()) { <div class="note">⚠ {{ error() }}</div> }
+    <ui-error-banner [message]="error() ?? ''" />
 
     <ui-table [columns]="columns" [loading]="loading()" [empty]="(page()?.content?.length ?? 0) === 0" emptyText="No clubs found."
               [sort]="sort()" (sortChange)="onSort($event)">
@@ -85,6 +97,7 @@ export class ClubsListComponent implements OnInit {
   statusSel: string[] = [];
   readonly pageIndex = signal(0);
   readonly page = signal<Page<ClubSummary> | null>(null);
+  readonly stats = signal<ClubStats | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly sort = signal<SortState | null>(null);
@@ -97,6 +110,7 @@ export class ClubsListComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.api.stats().subscribe({ next: (s) => this.stats.set(s), error: () => {} });
   }
 
   private load(): void {
@@ -116,6 +130,7 @@ export class ClubsListComponent implements OnInit {
   }
 
   search(): void { this.pageIndex.set(0); this.load(); }
+  onSearch(v: string): void { this.q = v; this.pageIndex.set(0); this.load(); }
   applyFilter(): void { this.pageIndex.set(0); this.load(); }
   goTo(i: number): void { this.pageIndex.set(i); this.load(); }
   onSort(s: SortState): void { this.sort.set(s); this.pageIndex.set(0); this.load(); }

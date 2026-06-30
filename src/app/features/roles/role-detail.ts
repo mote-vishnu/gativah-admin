@@ -45,9 +45,9 @@ interface FeatureRow {
       </div>
 
       <div class="row g3">
-        <div class="card kpi"><div class="lab"><span class="ic tint-violet"><lucide-icon name="shield-check" [size]="16" /></span> Permissions</div><div class="val">{{ grantedTotal() }}<small> / {{ totalPerms() }}</small></div></div>
-        <div class="card kpi"><div class="lab"><span class="ic tint-cyan"><lucide-icon name="users" [size]="16" /></span> Members</div><div class="val">{{ r.userCount }}</div></div>
-        <div class="card kpi"><div class="lab"><span class="ic tint-orange"><lucide-icon name="layout-dashboard" [size]="16" /></span> Features</div><div class="val">{{ activeFeatureCount() }}<small> / {{ matrix().length }}</small></div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-violet"><lucide-icon name="shield-check" [size]="16" /></span> Permissions</div><div class="val c-violet">{{ grantedTotal() }}<small> / {{ totalPerms() }}</small></div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-cyan"><lucide-icon name="users" [size]="16" /></span> Members</div><div class="val c-cyan">{{ r.userCount }}</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-orange"><lucide-icon name="layout-dashboard" [size]="16" /></span> Features</div><div class="val c-orange">{{ activeFeatureCount() }}<small> / {{ matrix().length }}</small></div></div>
       </div>
 
       <div class="card" style="margin-top:18px">

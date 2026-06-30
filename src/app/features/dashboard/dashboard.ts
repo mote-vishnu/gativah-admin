@@ -23,22 +23,22 @@ import { AuditEntryRow, FinanceOverview, FinanceRevenueResponse, ReasonCount, Re
     <div class="row g4">
       <a class="card kpi" routerLink="/moderation/queue">
         <div class="lab"><span class="ic tint-rose"><lucide-icon name="flag" [size]="16" /></span> Open reports</div>
-        <div class="val">{{ openReports() ?? '—' }}</div>
+        <div class="val c-rose">{{ openReports() ?? '—' }}</div>
         <div class="delta flat">pending triage</div>
       </a>
       <a class="card kpi" routerLink="/finance/dashboard">
         <div class="lab"><span class="ic tint-orange"><lucide-icon name="dollar-sign" [size]="16" /></span> MRR</div>
-        <div class="val">{{ money(ov()?.mrr) }}</div>
+        <div class="val c-orange">{{ money(ov()?.mrr) }}</div>
         <div class="delta flat">ARR {{ money(ov()?.arr) }}</div>
       </a>
       <a class="card kpi" routerLink="/finance/dashboard">
         <div class="lab"><span class="ic tint-green"><lucide-icon name="users" [size]="16" /></span> Active subs</div>
-        <div class="val">{{ ov()?.activeSubscribers ?? '—' }}</div>
+        <div class="val c-green">{{ ov()?.activeSubscribers ?? '—' }}</div>
         <div class="delta flat">{{ ov()?.trialing ?? 0 }} trialing</div>
       </a>
       <a class="card kpi" routerLink="/finance/dashboard">
         <div class="lab"><span class="ic tint-cyan"><lucide-icon name="credit-card" [size]="16" /></span> Net · MTD</div>
-        <div class="val">{{ money(ov()?.netMtd) }}</div>
+        <div class="val c-cyan">{{ money(ov()?.netMtd) }}</div>
         <div class="delta flat">refunds {{ money(ov()?.refundsMtd) }}</div>
       </a>
     </div>

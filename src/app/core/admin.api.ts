@@ -9,10 +9,13 @@ import {
   AuditEntryRow,
   CreateLegalRequest,
   CreateRoleRequest,
+  DisclosureRegisterRow,
   DisclosureRow,
   InviteStaffRequest,
   LegalRequestDetail,
   LegalRequestSummary,
+  LegalStats,
+  LegalTaskListRow,
   MfaStart,
   MfaStatus,
   Page,
@@ -20,6 +23,7 @@ import {
   RecordDisclosureRequest,
   RoleResponse,
   RolesResponse,
+  SessionRow,
   StaffRow,
   UpdateLegalRequest,
   UpdateRoleRequest,
@@ -62,6 +66,18 @@ export class StaffApi {
   setRoles(id: number, req: AssignRolesRequest): Observable<StaffRow> {
     return this.http.patch<StaffRow>(`${this.base}/${id}/roles`, req);
   }
+
+  resetMfa(id: number): Observable<StaffRow> {
+    return this.http.post<StaffRow>(`${this.base}/${id}/mfa/reset`, {});
+  }
+
+  sessions(id: number): Observable<{ items: SessionRow[] }> {
+    return this.http.get<{ items: SessionRow[] }>(`${this.base}/${id}/sessions`);
+  }
+
+  revokeSession(id: number, sessionId: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/sessions/${sessionId}/revoke`, {});
+  }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -95,10 +111,27 @@ export class LegalApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${API_BASE_URL}/admin/legal/requests`;
 
-  list(status: string | string[] | null, page = 0, size = 20): Observable<Page<LegalRequestSummary>> {
-    let params = new HttpParams().set('page', page).set('size', size);
-    params = appendMulti(params, 'status', status);
+  list(opts: { q?: string | null; status?: string | string[] | null; type?: string | string[] | null; overdue?: boolean; page?: number; size?: number }): Observable<Page<LegalRequestSummary>> {
+    let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 20);
+    if (opts.q) { params = params.set('q', opts.q); }
+    if (opts.overdue) { params = params.set('overdue', true); }
+    params = appendMulti(params, 'status', opts.status);
+    params = appendMulti(params, 'type', opts.type);
     return this.http.get<Page<LegalRequestSummary>>(this.base, { params });
+  }
+
+  stats(): Observable<LegalStats> {
+    return this.http.get<LegalStats>(`${API_BASE_URL}/admin/legal/stats`);
+  }
+
+  openTasks(page = 0, size = 25): Observable<Page<LegalTaskListRow>> {
+    const params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<Page<LegalTaskListRow>>(`${API_BASE_URL}/admin/legal/tasks`, { params });
+  }
+
+  disclosureRegister(page = 0, size = 25): Observable<Page<DisclosureRegisterRow>> {
+    const params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<Page<DisclosureRegisterRow>>(`${API_BASE_URL}/admin/legal/disclosures`, { params });
   }
 
   detail(id: number): Observable<LegalRequestDetail> {

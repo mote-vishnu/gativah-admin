@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { IconComponent } from '../../shared/icon';
 import { InputComponent, SelectComponent, SelectOption, DateRange, DateRangeComponent } from '../../shared/forms';
@@ -76,6 +77,8 @@ const CATEGORY_OPTIONS: SelectOption[] = [
 })
 export class AuditComponent implements OnInit {
   private readonly api = inject(AuditApi);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly exporter = inject(ExportService);
   private readonly toast = inject(ToastService);
   readonly dir = inject(AdminDirectoryService);
@@ -107,11 +110,33 @@ export class AuditComponent implements OnInit {
 
   ngOnInit(): void {
     this.dir.load();
+    const qp = this.route.snapshot.queryParamMap;
+    this.category = qp.get('category') ?? '';
+    this.actorSel = qp.get('actor') ?? '';
+    this.q = qp.get('q') ?? '';
+    this.range = { from: qp.get('from'), to: qp.get('to') };
+    this.pageIndex.set(Math.max(0, Number(qp.get('page') ?? 0)));
     this.load();
+  }
+
+  private syncUrl(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      replaceUrl: true,
+      queryParams: {
+        category: this.category || null,
+        actor: this.actorSel || null,
+        q: this.q.trim() || null,
+        from: this.range.from || null,
+        to: this.range.to || null,
+        page: this.pageIndex() || null,
+      },
+    });
   }
 
   private load(): void {
     this.loading.set(true);
+    this.syncUrl();
     this.api.list({
       actorId: this.actorSel ? Number(this.actorSel) : null,
       action: this.category || null,

@@ -11,7 +11,7 @@ import { ModerationApi } from '../../core/moderation.api';
 import { AuthService } from '../../core/auth.service';
 import { ExportService } from '../../core/export.service';
 import { AdminDirectoryService } from '../../core/admin-directory.service';
-import { Page, ReportSummary, ResolveAction } from '../../core/models';
+import { Page, ReportStats, ReportSummary, ResolveAction } from '../../core/models';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { ToastService } from '../../shared/toast/toast.service';
 
@@ -47,6 +47,15 @@ const OVERDUE_HOURS = 24;
       </button>
     </ui-page-header>
 
+    @if (stats(); as st) {
+      <div class="row g4" style="margin-bottom:18px">
+        <div class="card kpi"><div class="lab"><span class="ic tint-rose"><lucide-icon name="flag" [size]="16" /></span> Open</div><div class="val c-rose">{{ st.open }}</div><div class="delta flat">{{ st.pending }} pending · {{ st.reviewing }} reviewing</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-amber"><lucide-icon name="triangle-alert" [size]="16" /></span> SLA breaches</div><div class="val c-amber" [class.bad]="st.slaBreaches > 0">{{ st.slaBreaches }}</div><div class="delta flat">past triage target</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-green"><lucide-icon name="check" [size]="16" /></span> Resolved · 24h</div><div class="val c-green">{{ st.resolved24h }}</div><div class="delta flat">last day</div></div>
+        <div class="card kpi"><div class="lab"><span class="ic tint-violet"><lucide-icon name="users-round" [size]="16" /></span> Repeat offenders</div><div class="val c-violet">{{ st.repeatOffenders }}</div><div class="delta flat">≥3 open reports</div></div>
+      </div>
+    }
+
     <div class="filterbar">
       <div class="f wide"><ui-multiselect placeholder="All statuses" [options]="statusOptions" [(ngModel)]="statusSel" (ngModelChange)="applyFilter()" /></div>
       <div class="f"><ui-select [options]="reasonOptions" [(ngModel)]="reasonSel" (ngModelChange)="applyFilter()" /></div>
@@ -75,18 +84,25 @@ const OVERDUE_HOURS = 24;
               <ui-checkbox [checked]="selected().has(r.id)" (checkedChange)="toggle(r.id, $event)" />
             </td>
           }
-          <td><b>{{ r.contentType | titlecase }}</b> · {{ snippet(r) }}</td>
-          <td>{{ r.authorUsername ? '@' + r.authorUsername : '—' }}</td>
+          <td><span class="sev" [class]="sevClass(r.maxSeverity)" [title]="sevTitle(r.maxSeverity)"></span></td>
+          <td>
+            <div class="cnt"><b>{{ r.contentType | titlecase }}</b> · {{ snippet(r) }}</div>
+            @if (r.reporterCount > 1) { <span class="sub">⚑ reported by {{ r.reporterCount }}</span> }
+          </td>
+          <td>
+            {{ r.authorUsername ? '@' + r.authorUsername : '—' }}
+            @if (r.openReportsOnAuthor > 1) { <span class="repeat" title="open reports on this author">{{ r.openReportsOnAuthor }} open</span> }
+          </td>
           <td>{{ r.reporterUsername ? '@' + r.reporterUsername : '—' }}</td>
           <td><span class="pill reason">{{ r.reason }}</span></td>
+          <td>
+            @if (isOpen(r.status)) {
+              <span class="pill" [class]="slaTone(r)">{{ slaLabel(r) }}</span>
+              <div class="age">{{ r.createdAt | date: 'MMM d, HH:mm' }}</div>
+            } @else { <span class="muted">—</span> }
+          </td>
           <td><span class="pill" [class]="statusClass(r.status)">{{ r.status | titlecase }}</span></td>
           <td>{{ assigneeLabel(r) }}</td>
-          <td class="muted">
-            <div class="when">
-              <span>{{ r.createdAt | date: 'MMM d, HH:mm' }}</span>
-              <span class="age" [class.over]="isOverdue(r)">{{ age(r.createdAt) }}@if (isOverdue(r)) { · overdue }</span>
-            </div>
-          </td>
         </tr>
       }
     </ui-table>
@@ -111,9 +127,16 @@ const OVERDUE_HOURS = 24;
     .bulkbar .spacer { flex: 1; }
     .btn { display: inline-flex; align-items: center; gap: 7px; }
     .pick { width: 1%; white-space: nowrap; }
-    .when { display: flex; flex-direction: column; gap: 2px; }
-    .age { font-size: 10.5px; color: var(--muted-2); }
-    .age.over { color: var(--rose); font-weight: 600; }
+    .age { font-size: 10px; color: var(--muted-2); margin-top: 3px; }
+    .cnt { font-size: 13px; }
+    .sub { display: inline-block; font-size: 10.5px; color: var(--amber); margin-top: 3px; }
+    .repeat { font-size: 9.5px; font-weight: 700; color: var(--rose); background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.25); border-radius: 999px; padding: 1px 7px; margin-left: 7px; }
+    .sev { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+    .sev.hi { background: var(--rose); box-shadow: 0 0 0 3px rgba(244,63,94,0.18); }
+    .sev.md { background: var(--amber); box-shadow: 0 0 0 3px rgba(251,191,36,0.18); }
+    .sev.lo { background: var(--green); }
+    .sev.none { background: var(--surface-3); }
+    .kpi .val.bad { color: var(--rose); }
   `,
   imports: [FormsModule, DatePipe, TitleCasePipe, TableComponent, PaginatorComponent, CheckboxComponent, IconComponent, MultiSelectComponent, SelectComponent, PageHeaderComponent],
 })
@@ -135,6 +158,7 @@ export class ModerationListComponent implements OnInit {
   readonly sort = signal<SortState | null>(null);
   readonly pageIndex = signal(0);
   readonly page = signal<Page<ReportSummary> | null>(null);
+  readonly stats = signal<ReportStats | null>(null);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
@@ -146,20 +170,26 @@ export class ModerationListComponent implements OnInit {
 
   readonly columns = computed<TableColumn[]>(() => {
     const cols: TableColumn[] = [
+      { label: '', width: '1%' },
       { label: 'Reported content', sortKey: 'contentType' },
       { label: 'Author' },
       { label: 'Reporter' },
       { label: 'Reason', sortKey: 'reason' },
+      { label: 'SLA', sortKey: 'createdAt' },
       { label: 'Status', sortKey: 'status' },
       { label: 'Assignee' },
-      { label: 'When', sortKey: 'createdAt' },
     ];
     return this.canEdit() ? [{ label: '', width: '1%' }, ...cols] : cols;
   });
 
   ngOnInit(): void {
     this.dir.load();
+    this.loadStats();
     this.load();
+  }
+
+  private loadStats(): void {
+    this.api.stats().subscribe({ next: (s) => this.stats.set(s), error: () => {} });
   }
 
   private load(): void {
@@ -239,6 +269,7 @@ export class ModerationListComponent implements OnInit {
         this.clear();
         this.toast.success(`${r.resolved} resolved${r.failed ? `, ${r.failed} failed` : ''}.`);
         this.load();
+        this.loadStats();
       },
       error: () => { this.busy.set(false); this.toast.error('Bulk action failed.'); },
     });
@@ -298,6 +329,51 @@ export class ModerationListComponent implements OnInit {
 
   private hoursSince(iso: string): number {
     return (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  }
+
+  isOpen(s: string): boolean {
+    return s === 'PENDING' || s === 'REVIEWING';
+  }
+
+  /** Triage target (hours) by reason — drives the SLA countdown / breach state. */
+  private slaHours(reason: string): number {
+    switch (reason) {
+      case 'Illegal': return 2;
+      case 'Harassment': case 'Nudity': return 4;
+      case 'Misinformation': return 12;
+      default: return 24; // Spam etc.
+    }
+  }
+
+  private hoursLeft(r: ReportSummary): number {
+    return this.slaHours(r.reason) - this.hoursSince(r.createdAt);
+  }
+
+  slaLabel(r: ReportSummary): string {
+    const left = this.hoursLeft(r);
+    if (left <= 0) { return `Breached ${this.age(r.createdAt)}`; }
+    if (left < 1) { return `${Math.max(1, Math.round(left * 60))}m left`; }
+    return `${Math.round(left)}h left`;
+  }
+
+  slaTone(r: ReportSummary): string {
+    const left = this.hoursLeft(r);
+    if (left <= 0) { return 'banned'; }
+    if (left <= this.slaHours(r.reason) * 0.25) { return 'pending'; }
+    return 'resolved';
+  }
+
+  sevClass(sev: string | null): string {
+    switch (sev) {
+      case 'HIGH': return 'hi';
+      case 'MED': return 'md';
+      case 'LOW': return 'lo';
+      default: return 'none';
+    }
+  }
+
+  sevTitle(sev: string | null): string {
+    return sev ? `${sev[0] + sev.slice(1).toLowerCase()} auto-flag severity` : 'No auto-flag signals';
   }
 
   statusClass(s: string): string {

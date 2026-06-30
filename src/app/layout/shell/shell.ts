@@ -8,6 +8,7 @@ import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
 import { ToastHostComponent } from '../../shared/toast/toast-host.component';
 import { ConfirmHostComponent } from '../../shared/confirm/confirm-host.component';
+import { CommandPaletteComponent } from '../../shared/command-palette/command-palette.component';
 
 const COLLAPSE_KEY = 'gativah-admin.nav-collapsed';
 
@@ -75,6 +76,7 @@ const MODULES: NavModule[] = [
         items: [
           { label: 'Queue', icon: 'flag', link: '/moderation/queue' },
           { label: 'Appeals', icon: 'scale', link: '/moderation/appeals', perm: 'APPEALS:VIEW' },
+          { label: 'Region bans', icon: 'globe', link: '/moderation/region-bans' },
           { label: 'Moderation history', icon: 'scroll-text', link: '/moderation/history' },
         ],
       },
@@ -148,7 +150,7 @@ interface Crumb {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, IconComponent, ToastHostComponent, ConfirmHostComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, IconComponent, ToastHostComponent, ConfirmHostComponent, CommandPaletteComponent],
   template: `
     <div class="shell" [class.collapsed]="collapsed()" [class.no-rail]="!mod()" [class.home]="isHome()">
       @if (mod(); as m) {
@@ -205,6 +207,9 @@ interface Crumb {
             }
           </nav>
           <div class="spacer"></div>
+          <button class="cmdk" (click)="palette.toggle()" title="Search pages (Ctrl/⌘ K)">
+            <lucide-icon name="search" [size]="15" /> <span>Search…</span> <kbd>⌘K</kbd>
+          </button>
           <a class="icon-btn" routerLink="/security" routerLinkActive="on" title="Security / MFA"><lucide-icon name="shield-check" [size]="17" /></a>
           <button class="icon-btn" title="Notifications"><lucide-icon name="bell" [size]="17" /></button>
           <button class="icon-btn" (click)="theme.toggle()" title="Toggle theme">
@@ -217,6 +222,7 @@ interface Crumb {
 
       <ui-toast-host />
       <ui-confirm-host />
+      <ui-command-palette #palette />
     </div>
   `,
   styles: `
@@ -275,6 +281,11 @@ interface Crumb {
     .icon-btn { width: 38px; height: 38px; flex: 0 0 auto; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: 0.15s var(--ease); }
     .icon-btn:hover { color: var(--ink); border-color: var(--line-strong); }
     .icon-btn.on { color: var(--brand); border-color: var(--brand-line); }
+    .cmdk { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); color: var(--muted-2); cursor: pointer; font-family: inherit; font-size: 13px; transition: 0.15s var(--ease); }
+    .cmdk:hover { color: var(--ink); border-color: var(--line-strong); }
+    .cmdk span { white-space: nowrap; }
+    .cmdk kbd { font-family: var(--mono); font-size: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 2px 5px; }
+    @media (max-width: 720px) { .cmdk span { display: none; } }
     .btn { display: inline-flex; align-items: center; gap: 8px; }
     .content { padding: 26px 30px 80px; min-width: 0; }
   `,

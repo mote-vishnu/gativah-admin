@@ -37,11 +37,13 @@ export interface ReportSummary {
   authorUsername: string;
   snippet: string;
   assigneeAdminId: number | null;
+  maxSeverity: 'HIGH' | 'MED' | 'LOW' | null;
+  reporterCount: number;
+  openReportsOnAuthor: number;
 }
 
 export interface ReportDetail extends ReportSummary {
   details: string;
-  reporterCount: number;
   authorDisplayName: string | null;
   authorPhotoUrl: string | null;
   authorStatus: string;
@@ -101,6 +103,15 @@ export interface ReasonCount {
   count: number;
 }
 
+export interface ReportStats {
+  open: number;
+  pending: number;
+  reviewing: number;
+  slaBreaches: number;
+  resolved24h: number;
+  repeatOffenders: number;
+}
+
 export interface AuthorSanctionRow {
   type: string;
   reason: string | null;
@@ -119,11 +130,25 @@ export interface AuthorHistory {
   recentSanctions: AuthorSanctionRow[];
 }
 
+export interface RegionBanRow {
+  id: number;
+  postId: number | null;
+  country: string;
+  reason: string | null;
+  bannedByAdminId: number | null;
+  bannedAt: string | null;
+  lifted: boolean;
+  authorUsername: string | null;
+  snippet: string | null;
+}
+
 export interface AppealRow {
   id: number;
   subjectUserId: number;
+  subjectUsername: string | null;
   relatedReportId: number | null;
   relatedActionId: number | null;
+  originalAction: string | null;
   message: string;
   status: string;
   createdAt: string;
@@ -151,11 +176,36 @@ export interface FinanceOverview {
   trialing: number;
   inGrace: number;
   canceled30d: number;
+  newSubs30d: number;
+  churnRate: number;
+  grossTrendPct: number | null;
   mrr: number;
   arr: number;
   grossMtd: number;
   refundsMtd: number;
   netMtd: number;
+}
+
+export interface MrrMovement { start: number; added: number; churned: number; end: number; }
+
+export interface PayoutRow {
+  platform: string;
+  gross: number;
+  refunds: number;
+  netGross: number;
+  txnCount: number;
+  commissionRate: number;
+  commission: number;
+  payout: number;
+}
+export interface PayoutsResponse {
+  windowDays: number;
+  platforms: PayoutRow[];
+  grossTotal: number;
+  refundTotal: number;
+  netGrossTotal: number;
+  commissionTotal: number;
+  payoutTotal: number;
 }
 
 export interface RevenuePoint { period: string; gross: number; refunds: number; }
@@ -190,6 +240,42 @@ export interface SubscriptionRow {
   autoRenew: boolean;
   trial: boolean;
   currentPeriodEnd: string | null;
+}
+
+export interface TxnEventRow {
+  id: number;
+  platform: string;
+  eventType: string;
+  subtype: string | null;
+  status: string;
+  receivedAt: string | null;
+  processedAt: string | null;
+}
+
+export interface TransactionDetail {
+  id: number;
+  userId: number | null;
+  subscriptionId: number | null;
+  planCode: string;
+  platform: string;
+  productId: string | null;
+  storeTransactionId: string | null;
+  originalTransactionId: string | null;
+  type: string;
+  status: string;
+  grossAmount: number;
+  grossCurrency: string;
+  countryCode: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  purchasedAt: string | null;
+  environment: string | null;
+  source: string | null;
+  notificationUuid: string | null;
+  createdAt: string | null;
+  subscription: SubscriptionRow | null;
+  relatedTxns: TransactionRow[];
+  events: TxnEventRow[];
 }
 
 export interface DeadLetterRow {
@@ -232,6 +318,14 @@ export interface StaffRow {
   mfaEnrolled: boolean;
   lastLoginAt: string | null;
   createdAt: string | null;
+}
+
+export interface SessionRow {
+  id: number;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string | null;
+  revoked: boolean;
 }
 
 export interface InviteStaffRequest {
@@ -304,9 +398,46 @@ export interface LegalRequestSummary {
   requestingAuthority: string;
   subjectUserId: number | null;
   status: LegalStatus;
+  approvalStatus: string;
   receivedAt: string;
   dueAt: string | null;
+  overdue: boolean;
   disclosureCount: number;
+}
+
+export interface LegalStats {
+  openRequests: number;
+  underReview: number;
+  pendingApproval: number;
+  overdue: number;
+  actioned30d: number;
+  disclosures30d: number;
+  openTasks: number;
+}
+
+export interface LegalTaskListRow {
+  id: number;
+  requestId: number;
+  reference: string;
+  requestType: string;
+  title: string;
+  status: string;
+  assigneeAdminId: number | null;
+  dueAt: string | null;
+  createdAt: string;
+  overdue: boolean;
+}
+
+export interface DisclosureRegisterRow {
+  id: number;
+  requestId: number;
+  reference: string;
+  requestType: string;
+  disclosedBy: number | null;
+  recipient: string;
+  dataCategories: string;
+  justification: string;
+  disclosedAt: string;
 }
 
 export interface DisclosureRow {
@@ -519,6 +650,29 @@ export interface ClubEventRow {
   removed: boolean;
 }
 
+export interface ClubInsights {
+  owners: number;
+  admins: number;
+  regularMembers: number;
+  pendingMembers: number;
+  upcomingEvents: number;
+  pastEvents: number;
+  totalRsvps: number;
+  newMembers30d: number;
+}
+
+export interface ClubStats {
+  totalClubs: number;
+  activeClubs: number;
+  removedClubs: number;
+  privateClubs: number;
+  totalMembers: number;
+  avgMembers: number;
+  newClubs30d: number;
+  upcomingEvents: number;
+  largestClubMembers: number;
+}
+
 export interface ClubDetail {
   id: number;
   name: string;
@@ -530,6 +684,7 @@ export interface ClubDetail {
   memberCount: number;
   removed: boolean;
   createdAt: string;
+  insights: ClubInsights;
   members: ClubMemberRow[];
   events: ClubEventRow[];
 }
