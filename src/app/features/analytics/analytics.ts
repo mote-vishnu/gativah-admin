@@ -4,12 +4,14 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { IconComponent } from '../../shared/icon';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { ChartComponent } from '../../shared/chart/chart.component';
+import { WorldMapComponent } from '../../shared/worldmap/worldmap.component';
 import { AnalyticsApi } from '../../core/analytics.api';
 import {
   ActiveUsersResponse,
   EngagementResponse,
   EventBreakdownResponse,
   FunnelResponse,
+  GeoResponse,
   OverviewKpis,
   PlatformResponse,
   RetentionResponse,
@@ -34,7 +36,7 @@ const EVENT_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [DecimalPipe, IconComponent, PageHeaderComponent, ChartComponent, FunnelChartComponent, RetentionGridComponent],
+  imports: [DecimalPipe, IconComponent, PageHeaderComponent, ChartComponent, WorldMapComponent, FunnelChartComponent, RetentionGridComponent],
   template: `
     <ui-page-header icon="chart-line" title="Insights" subtitle="Product analytics · engagement, retention & activation" tint="violet">
       <div page-actions class="ranges">
@@ -98,6 +100,29 @@ const EVENT_LABELS: Record<string, string> = {
     </div>
 
     <div class="card" style="margin-top:18px">
+      <div class="card-h">
+        <h3>Users by geography</h3>
+        <span class="hint">@if (geo(); as g) { {{ g.mappedUsers | number }} of {{ g.totalUsers | number }} located · {{ g.countries.length }} countries }</span>
+      </div>
+      @if (geo()?.countries?.length) {
+        <div class="geowrap">
+          <ui-worldmap [data]="geo()!.countries" [height]="440" />
+          <div class="toplist">
+            <div class="tl-h">Top countries</div>
+            @for (c of topCountries(); track c.code) {
+              <div class="crow">
+                <span class="cc">{{ flag(c.code) }}</span>
+                <span class="cn">{{ c.name }}</span>
+                <div class="cbar"><i [style.width.%]="barPct(c.users)"></i></div>
+                <b>{{ c.users }}</b>
+              </div>
+            }
+          </div>
+        </div>
+      } @else { <div class="empty">No user location data yet.</div> }
+    </div>
+
+    <div class="card" style="margin-top:18px">
       <div class="card-h"><h3>Retention</h3><span class="hint">weekly signup cohorts · % still active</span></div>
       <app-retention-grid [data]="retentionData()" />
     </div>
@@ -117,6 +142,17 @@ const EVENT_LABELS: Record<string, string> = {
     .vrow { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; padding: 4px 2px; }
     .vrow .mono { font-family: var(--mono); color: var(--ink-2); }
     .vrow .vc { color: var(--muted-2); }
+    .geowrap { display: grid; grid-template-columns: 1fr 290px; gap: 22px; align-items: start; }
+    @media (max-width: 1000px) { .geowrap { grid-template-columns: 1fr; } }
+    .toplist { border-left: 1px solid var(--line-soft); padding-left: 20px; }
+    @media (max-width: 1000px) { .toplist { border-left: 0; padding-left: 0; } }
+    .tl-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); font-weight: 700; margin-bottom: 12px; }
+    .crow { display: flex; align-items: center; gap: 11px; padding: 8px 0; font-size: 13px; }
+    .crow .cc { font-size: 17px; line-height: 1; flex: 0 0 auto; }
+    .crow .cn { flex: 0 0 92px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .crow .cbar { flex: 1; height: 6px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+    .crow .cbar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--brand-3), var(--brand)); }
+    .crow b { width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
   `,
 })
 export class AnalyticsComponent implements OnInit {
@@ -133,6 +169,9 @@ export class AnalyticsComponent implements OnInit {
   readonly platformData = signal<PlatformResponse | null>(null);
   readonly funnelData = signal<FunnelResponse | null>(null);
   readonly retentionData = signal<RetentionResponse | null>(null);
+  readonly geo = signal<GeoResponse | null>(null);
+
+  readonly topCountries = computed(() => (this.geo()?.countries ?? []).slice(0, 8));
 
   /** Shared multi-colour palette (design tokens) for per-bar distributed charts. */
   readonly palette = ['--brand', '--cyan', '--violet', '--green', '--amber', '--rose'];
@@ -168,6 +207,21 @@ export class AnalyticsComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    // Geography isn't range-scoped — load once.
+    this.api.geo().subscribe({ next: (g) => this.geo.set(g), error: () => {} });
+  }
+
+  /** Top-country bar width relative to the busiest country. */
+  barPct(users: number): number {
+    const max = this.topCountries()[0]?.users ?? 1;
+    return max > 0 ? Math.round((users / max) * 100) : 0;
+  }
+
+  /** ISO alpha-2 → emoji flag (regional-indicator pair). */
+  flag(code: string): string {
+    if (!code || code.length !== 2) { return '🏳️'; }
+    const base = 0x1f1e6;
+    return String.fromCodePoint(...[...code.toUpperCase()].map((c) => base + c.charCodeAt(0) - 65));
   }
 
   setRange(days: number): void {

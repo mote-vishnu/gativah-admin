@@ -27,7 +27,8 @@
             "assets": [],
             "styles": [
               "src/tailwind.css",
-              "src/styles.scss"
+              "src/styles.scss",
+              "node_modules/jsvectormap/dist/jsvectormap.min.css"
             ]
           },
           "configurations": {

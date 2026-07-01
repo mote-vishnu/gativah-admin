@@ -1006,3 +1006,16 @@ export interface RetentionResponse {
   weeks: number;
   cohorts: RetentionRow[];
 }
+
+export interface CountryStat {
+  code: string;
+  name: string;
+  users: number;
+  pct: number;
+}
+
+export interface GeoResponse {
+  totalUsers: number;
+  mappedUsers: number;
+  countries: CountryStat[];
+}

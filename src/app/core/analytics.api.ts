@@ -8,6 +8,7 @@ import {
   EngagementResponse,
   EventBreakdownResponse,
   FunnelResponse,
+  GeoResponse,
   OverviewKpis,
   PlatformResponse,
   RetentionResponse,
@@ -44,6 +45,10 @@ export class AnalyticsApi {
 
   funnel(days: number): Observable<FunnelResponse> {
     return this.http.get<FunnelResponse>(`${this.base}/funnel`, { params: this.days(days) });
+  }
+
+  geo(): Observable<GeoResponse> {
+    return this.http.get<GeoResponse>(`${this.base}/geo`);
   }
 
   private days(days: number): HttpParams {
