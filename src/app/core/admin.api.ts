@@ -6,8 +6,11 @@ import { API_BASE_URL } from './environment';
 import { appendMulti } from './http-params.util';
 import {
   AssignRolesRequest,
+  ActiveSessionRow,
   AuditEntryRow,
+  AuditStats,
   CreateLegalRequest,
+  SecurityOverview,
   CreateRoleRequest,
   DisclosureRegisterRow,
   DisclosureRow,
@@ -34,14 +37,21 @@ import {
 export class AuditApi {
   private readonly http = inject(HttpClient);
 
-  list(opts: { actorId?: number | null; action?: string | null; q?: string | null; from?: string | null; to?: string | null; page?: number; size?: number } = {}): Observable<Page<AuditEntryRow>> {
+  list(opts: { actorId?: number | null; action?: string | null; category?: string | null; q?: string | null; from?: string | null; to?: string | null; page?: number; size?: number } = {}): Observable<Page<AuditEntryRow>> {
     let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 25);
     if (opts.actorId != null) { params = params.set('actorId', opts.actorId); }
     if (opts.action) { params = params.set('action', opts.action); }
+    if (opts.category) { params = params.set('category', opts.category); }
     if (opts.q) { params = params.set('q', opts.q); }
     if (opts.from) { params = params.set('from', opts.from); }
     if (opts.to) { params = params.set('to', opts.to); }
     return this.http.get<Page<AuditEntryRow>>(`${API_BASE_URL}/admin/audit`, { params });
+  }
+
+  stats(actorId?: number | null): Observable<AuditStats> {
+    let params = new HttpParams();
+    if (actorId != null) { params = params.set('actorId', actorId); }
+    return this.http.get<AuditStats>(`${API_BASE_URL}/admin/audit/stats`, { params });
   }
 }
 
@@ -182,6 +192,20 @@ export class MfaApi {
 
   enable(code: string): Observable<MfaStatus> {
     return this.http.post<MfaStatus>(`${this.base}/enable`, { code });
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class SecurityApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${API_BASE_URL}/admin/security`;
+
+  overview(): Observable<SecurityOverview> {
+    return this.http.get<SecurityOverview>(`${this.base}/overview`);
+  }
+
+  sessions(): Observable<{ sessions: ActiveSessionRow[] }> {
+    return this.http.get<{ sessions: ActiveSessionRow[] }>(`${this.base}/sessions`);
   }
 }
 

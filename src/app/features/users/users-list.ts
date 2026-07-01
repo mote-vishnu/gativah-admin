@@ -45,7 +45,11 @@ const STATUS_OPTIONS: SelectOption[] = [
         <tr class="clickable" (click)="open(u)">
           <td>
             <div class="u">
-              <span class="av">{{ initials(u) }}</span>
+              @if (u.photoUrl) {
+                <img class="av pic" [src]="u.photoUrl" [alt]="'@' + u.username" loading="lazy" referrerpolicy="no-referrer" />
+              } @else {
+                <span class="av">{{ initials(u) }}</span>
+              }
               <div class="nm"><b>{{ '@' + u.username }}</b><span>{{ u.fullName || '—' }}</span></div>
             </div>
           </td>
@@ -74,6 +78,7 @@ const STATUS_OPTIONS: SelectOption[] = [
     .toolbar .filt { width: 240px; max-width: 100%; }
     .u { display: flex; align-items: center; gap: 10px; }
     .av { width: 30px; height: 30px; border-radius: 9px; background: var(--av); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+    .av.pic { object-fit: cover; }
     .nm b { font-size: 13px; } .nm span { display: block; font-size: 11px; color: var(--muted-2); }
   `,
 })

@@ -10,7 +10,7 @@ export const HOME_HUB: HubConfig = {
     {
       title: 'Operations',
       tiles: [
-        { label: 'Dashboard', desc: 'Live operations overview & KPIs', icon: 'layout-dashboard', link: '/dashboard', tint: 'tint-orange' },
+        { label: 'Overview', desc: 'Live KPIs, dashboards & product analytics', icon: 'layout-dashboard', link: '/dashboard', tint: 'tint-orange' },
         { label: 'Moderation', desc: 'Grievances, appeals & content review', icon: 'flag', link: '/moderation/queue', tint: 'tint-rose', perm: 'GRIEVANCES:VIEW' },
         { label: 'Finance', desc: 'Revenue, transactions & billing', icon: 'dollar-sign', link: '/finance/dashboard', tint: 'tint-green', perm: 'FINANCE:VIEW' },
         { label: 'Community', desc: 'Members & clubs', icon: 'users-round', link: '/users', tint: 'tint-cyan', perm: 'USERS:VIEW' },

@@ -4,7 +4,18 @@ import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
 import { appendMulti } from './http-params.util';
-import { AuditEntryRow, BanUserRequest, Page, SuspendUserRequest, UserDetail, UserInsights, UserSummary } from './models';
+import {
+  AuditEntryRow,
+  BanUserRequest,
+  Page,
+  SuspendUserRequest,
+  UserBilling,
+  UserContentResponse,
+  UserDetail,
+  UserInsights,
+  UserReportsResponse,
+  UserSummary,
+} from './models';
 
 @Injectable({ providedIn: 'root' })
 export class UsersApi {
@@ -41,6 +52,18 @@ export class UsersApi {
 
   insights(id: number): Observable<UserInsights> {
     return this.http.get<UserInsights>(`${this.base}/${id}/insights`);
+  }
+
+  content(id: number): Observable<UserContentResponse> {
+    return this.http.get<UserContentResponse>(`${this.base}/${id}/content`);
+  }
+
+  billing(id: number): Observable<UserBilling> {
+    return this.http.get<UserBilling>(`${this.base}/${id}/billing`);
+  }
+
+  reports(id: number): Observable<UserReportsResponse> {
+    return this.http.get<UserReportsResponse>(`${this.base}/${id}/reports`);
   }
 
   audit(id: number, page = 0, size = 25): Observable<Page<AuditEntryRow>> {

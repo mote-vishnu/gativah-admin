@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
 import { appendMulti } from './http-params.util';
-import { AuditEntryRow, ClubDetail, ClubStats, ClubSummary, Page } from './models';
+import { AuditEntryRow, ClubDetail, ClubEventDetail, ClubMemberRow, ClubReportedContent, ClubStats, ClubSummary, Page } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ClubsApi {
@@ -33,6 +33,14 @@ export class ClubsApi {
     return this.http.get<Page<AuditEntryRow>>(`${this.base}/${id}/audit`, { params });
   }
 
+  members(id: number, opts: { role?: string | null; status?: string | null; q?: string | null; page?: number; size?: number }): Observable<Page<ClubMemberRow>> {
+    let params = new HttpParams().set('page', opts.page ?? 0).set('size', opts.size ?? 20);
+    if (opts.role) { params = params.set('role', opts.role); }
+    if (opts.status) { params = params.set('status', opts.status); }
+    if (opts.q) { params = params.set('q', opts.q); }
+    return this.http.get<Page<ClubMemberRow>>(`${this.base}/${id}/members`, { params });
+  }
+
 
   remove(id: number, reason: string | null): Observable<ClubDetail> {
     return this.http.post<ClubDetail>(`${this.base}/${id}/remove`, { reason });
@@ -48,5 +56,17 @@ export class ClubsApi {
 
   removeEvent(id: number, eventId: number, reason: string | null): Observable<ClubDetail> {
     return this.http.post<ClubDetail>(`${this.base}/${id}/events/${eventId}/remove`, { reason });
+  }
+
+  reportedContent(id: number): Observable<{ items: ClubReportedContent[] }> {
+    return this.http.get<{ items: ClubReportedContent[] }>(`${this.base}/${id}/reported`);
+  }
+
+  eventDetail(id: number, eventId: number): Observable<ClubEventDetail> {
+    return this.http.get<ClubEventDetail>(`${this.base}/${id}/events/${eventId}`);
+  }
+
+  restoreEvent(id: number, eventId: number): Observable<ClubEventDetail> {
+    return this.http.post<ClubEventDetail>(`${this.base}/${id}/events/${eventId}/restore`, {});
   }
 }

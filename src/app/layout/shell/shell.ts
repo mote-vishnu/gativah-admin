@@ -69,6 +69,18 @@ interface NavModule {
 // Dashboard is intentionally NOT a module — it's a full-width overview.
 const MODULES: NavModule[] = [
   {
+    label: 'Overview', icon: 'layout-dashboard', match: ['/dashboard', '/insights'],
+    sections: [
+      {
+        title: 'Overview',
+        items: [
+          { label: 'Dashboard', icon: 'layout-dashboard', link: '/dashboard' },
+          { label: 'Insights', icon: 'chart-line', link: '/insights', perm: 'ANALYTICS:VIEW' },
+        ],
+      },
+    ],
+  },
+  {
     label: 'Moderation', icon: 'flag', match: ['/moderation', '/content'],
     sections: [
       {

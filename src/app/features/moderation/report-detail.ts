@@ -5,12 +5,15 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IconComponent } from '../../shared/icon';
 
 import { InputComponent, TextareaComponent } from '../../shared/forms';
+import { PostCardComponent } from '../../shared/post-card/post-card.component';
 import { AuthService } from '../../core/auth.service';
 import { ModerationApi } from '../../core/moderation.api';
+import { ContentApi } from '../../core/content.api';
 import { AdminDirectoryService } from '../../core/admin-directory.service';
 import {
   AuthorHistory,
   AutoFlagSignal,
+  ContentDetail,
   ModerationActionRow,
   ReportDetail,
   ResolveAction,
@@ -20,7 +23,7 @@ import {
 @Component({
   selector: 'app-report-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe, TitleCasePipe, IconComponent, TextareaComponent, InputComponent],
+  imports: [FormsModule, RouterLink, DatePipe, DecimalPipe, TitleCasePipe, IconComponent, TextareaComponent, InputComponent, PostCardComponent],
   template: `
     <a routerLink="/moderation/queue" class="back">‹ Back to queue</a>
 
@@ -37,23 +40,28 @@ import {
                 {{ r.status | titlecase }}@if (isOpen(r.status)) { · {{ ageLabel(r.createdAt) }} }
               </span>
             </div>
-            <div class="preview">
-              <div class="ph">
-                <span class="av">{{ initials(r) }}</span>
-                <div class="who">
-                  <b>{{ r.authorDisplayName || (r.authorUsername ? '@' + r.authorUsername : 'Unknown author') }}</b>
-                  <span class="muted">
-                    @if (r.authorUsername) { {{ '@' + r.authorUsername }} · }
-                    {{ r.createdAt | date: 'MMM d, HH:mm' }} ·
-                    {{ (r.privacy || r.contentType) | titlecase }}
-                  </span>
+            <div class="reported-h"><span class="tag">Reported {{ r.contentType | titlecase }}</span></div>
+            @if (postDetail(); as pd) {
+              <app-post-card [detail]="pd" />
+            } @else {
+              <div class="preview">
+                <div class="ph">
+                  <span class="av">{{ initials(r) }}</span>
+                  <div class="who">
+                    <b>{{ r.authorDisplayName || (r.authorUsername ? '@' + r.authorUsername : 'Unknown author') }}</b>
+                    <span class="muted">
+                      @if (r.authorUsername) { {{ '@' + r.authorUsername }} · }
+                      {{ r.createdAt | date: 'MMM d, HH:mm' }} ·
+                      {{ (r.privacy || r.contentType) | titlecase }}
+                    </span>
+                  </div>
                 </div>
+                <p class="body">{{ r.snippet || '(content unavailable)' }}</p>
+                @if (r.mediaCount > 0) {
+                  <div class="att"><lucide-icon name="image" [size]="14" /> {{ r.mediaCount }} attached {{ r.mediaCount === 1 ? 'item' : 'items' }}</div>
+                }
               </div>
-              <p class="body">{{ r.snippet || '(content unavailable)' }}</p>
-              @if (r.mediaCount > 0) {
-                <div class="att"><lucide-icon name="image" [size]="14" /> {{ r.mediaCount }} attached {{ r.mediaCount === 1 ? 'item' : 'items' }}</div>
-              }
-            </div>
+            }
             <div class="rep">
               Reported by <b>{{ r.reporterCount }} {{ r.reporterCount === 1 ? 'user' : 'users' }}</b>
               · Reason: <b>{{ r.reason }}</b>
@@ -173,6 +181,7 @@ import {
     @media (max-width: 1080px) { .dwrap { grid-template-columns: 1fr; } }
     .dcol { min-width: 0; }
 
+    .reported-h { margin: 4px 0 12px; } .reported-h .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--rose); background: rgba(244, 63, 94, 0.1); border: 1px solid var(--brand-line); border-radius: 999px; padding: 4px 11px; }
     .preview { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--surface-2); margin: 4px 0 14px; }
     .ph { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
     .av { width: 36px; height: 36px; border-radius: 10px; background: var(--av); display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: 0 0 auto; }
@@ -189,7 +198,6 @@ import {
     .sig .meter { flex: 1; height: 7px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
     .sig .meter i { display: block; height: 100%; border-radius: 5px; }
     .sig b { width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
-
     /* author meta-list */
     .ml .ln { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; color: var(--muted); }
     .ml .ln:last-child { border-bottom: 0; }
@@ -213,12 +221,14 @@ import {
 })
 export class ReportDetailComponent implements OnInit {
   private readonly api = inject(ModerationApi);
+  private readonly content = inject(ContentApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly auth = inject(AuthService);
   readonly dir = inject(AdminDirectoryService);
 
   readonly report = signal<ReportDetail | null>(null);
+  readonly postDetail = signal<ContentDetail | null>(null);
   readonly timeline = signal<ModerationActionRow[]>([]);
   readonly authorHistory = signal<AuthorHistory | null>(null);
   readonly signals = signal<AutoFlagSignal[]>([]);
@@ -235,12 +245,18 @@ export class ReportDetailComponent implements OnInit {
   private reload(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.api.report(id).subscribe({
-      next: (r) => this.report.set(r),
+      next: (r) => { this.report.set(r); this.loadContent(r); },
       error: () => this.error.set('Could not load this report.'),
     });
     this.api.timeline(id).subscribe({ next: (t) => this.timeline.set(t.items), error: () => {} });
     this.api.authorHistory(id).subscribe({ next: (h) => this.authorHistory.set(h), error: () => {} });
     this.api.signals(id).subscribe({ next: (s) => this.signals.set(s.items), error: () => {} });
+  }
+
+  /** Load the full reported post/comment so it renders as it does in the app. */
+  private loadContent(r: ReportDetail): void {
+    if (!r.contentType || !r.contentId) { return; }
+    this.content.detail(r.contentType, r.contentId).subscribe({ next: (d) => this.postDetail.set(d), error: () => this.postDetail.set(null) });
   }
 
   assignMe(): void {

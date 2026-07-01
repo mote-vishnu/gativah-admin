@@ -308,6 +308,32 @@ export interface AuditEntryRow {
   createdAt: string;
 }
 
+export interface AuditStats {
+  total: number;
+  today: number;
+  last7d: number;
+  operators: number;
+}
+
+export interface UnenrolledAdmin { id: number; name: string; email: string; }
+export interface SecurityOverview {
+  mfaEnrolled: number;
+  mfaTotal: number;
+  activeAdmins: number;
+  activeSessions: number;
+  signIns7d: number;
+  unenrolled: UnenrolledAdmin[];
+}
+export interface ActiveSessionRow {
+  sessionId: number;
+  adminUserId: number;
+  adminName: string | null;
+  email: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
 // ── Staff ─────────────────────────────────────────────────────
 export interface StaffRow {
   id: number;
@@ -520,6 +546,7 @@ export interface UserSummary {
   username: string;
   email: string;
   fullName: string | null;
+  photoUrl: string | null;
   accountStatus: string;
   verified: boolean;
   subscriptionState: string | null;
@@ -577,10 +604,60 @@ export interface ActivityPoint {
 export interface UserInsights {
   reportsAgainst: number;
   sanctionCount: number;
+  followers: number;
+  following: number;
+  posts: number;
   riskScore: number;
   riskLevel: string;
   devices: UserDeviceRow[];
   activity: ActivityPoint[];
+}
+
+export interface UserContentRow {
+  type: string;
+  id: number;
+  snippet: string | null;
+  kind: string | null;
+  createdAt: string;
+  removed: boolean;
+  views: number;
+  openReports: number;
+}
+
+export interface UserContentResponse {
+  items: UserContentRow[];
+}
+
+export interface UserTxnRow {
+  id: number;
+  type: string;
+  status: string;
+  amount: number | null;
+  currency: string | null;
+  platform: string | null;
+  purchasedAt: string | null;
+}
+
+export interface UserBilling {
+  lifetimeValue: number;
+  currency: string;
+  refunds: number;
+  transactions: number;
+  items: UserTxnRow[];
+}
+
+export interface UserReportRow {
+  reportId: number;
+  contentType: string;
+  contentId: number;
+  snippet: string | null;
+  reason: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface UserReportsResponse {
+  items: UserReportRow[];
 }
 
 export interface SuspendUserRequest {
@@ -601,6 +678,67 @@ export interface ContentRow {
   snippet: string | null;
   createdAt: string;
   removed: boolean;
+  activityType: string | null;
+  openReports: number;
+  totalReports: number;
+}
+
+export interface ContentStats {
+  posts: number;
+  comments: number;
+  stories: number;
+  removed: number;
+  flagged: number;
+}
+
+export interface ContentReportRef {
+  reportId: number;
+  reason: string;
+  reporterUserId: number | null;
+  reporterUsername: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface ReactionCount { type: string; count: number; }
+export interface MediaItem { mediaType: string; url: string | null; thumbnailUrl: string | null; }
+export interface ContentCommentRow {
+  id: number;
+  authorUserId: number | null;
+  authorUsername: string | null;
+  content: string | null;
+  createdAt: string | null;
+  removed: boolean;
+}
+export interface GeoPoint { lat: number; lng: number; }
+export interface ActivityShare {
+  activityType: string;
+  distanceKm: number | null;
+  durationSecs: number | null;
+  paceMinPerKm: number | null;
+  caloriesBurned: number | null;
+  route: GeoPoint[];
+}
+
+export interface ContentDetail {
+  type: string;
+  id: number;
+  authorUserId: number | null;
+  authorUsername: string | null;
+  content: string | null;
+  createdAt: string | null;
+  removed: boolean;
+  kind: string | null;
+  privacy: string | null;
+  viewCount: number;
+  parentPostId: number | null;
+  parentSnippet: string | null;
+  reactionTotal: number;
+  reactions: ReactionCount[];
+  media: MediaItem[];
+  commentCount: number;
+  comments: ContentCommentRow[];
+  activity: ActivityShare | null;
 }
 
 export interface TakedownContentRequest {
@@ -648,6 +786,48 @@ export interface ClubEventRow {
   startsAt: string | null;
   rsvpCount: number;
   removed: boolean;
+}
+
+export interface RsvpRow {
+  userId: number | null;
+  username: string | null;
+  status: string;
+  respondedAt: string | null;
+}
+
+export interface RoutePoint { seqNo: number; lat: number; lng: number; }
+
+export interface ClubReportedContent {
+  contentType: string;
+  contentId: number;
+  snippet: string | null;
+  authorUserId: number | null;
+  authorUsername: string | null;
+  openReports: number;
+  totalReports: number;
+  latestReportId: number | null;
+  latestReportAt: string | null;
+}
+
+export interface ClubEventDetail {
+  id: number;
+  clubId: number | null;
+  title: string;
+  kind: string;
+  description: string | null;
+  location: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  distanceM: number | null;
+  createdByUserId: number | null;
+  createdByUsername: string | null;
+  createdAt: string | null;
+  removed: boolean;
+  rsvpGoing: number;
+  rsvpMaybe: number;
+  rsvpDeclined: number;
+  rsvps: RsvpRow[];
+  route: RoutePoint[];
 }
 
 export interface ClubInsights {
@@ -735,4 +915,94 @@ export interface MfaStart {
   secret: string;
   otpauthUri: string;
   alreadyEnrolled: boolean;
+}
+
+// ── Analytics / Insights ─────────────────────────────────────────
+export interface TimePoint {
+  date: string;
+  value: number;
+}
+
+export interface StickinessPoint {
+  date: string;
+  dau: number;
+  mau: number;
+  stickiness: number;
+}
+
+export interface OverviewKpis {
+  dau: number;
+  wau: number;
+  mau: number;
+  stickiness: number;
+  activeUsers: number;
+  activeUsersDelta: number;
+  newSignups: number;
+  newSignupsDelta: number;
+  totalEvents: number;
+  totalEventsDelta: number;
+  avgEventsPerUser: number;
+}
+
+export interface ActiveUsersResponse {
+  activeUsers: TimePoint[];
+  newSignups: TimePoint[];
+}
+
+export interface EventBreakdownRow {
+  name: string;
+  count: number;
+  uniqueUsers: number;
+  pct: number;
+}
+
+export interface EventBreakdownResponse {
+  total: number;
+  events: EventBreakdownRow[];
+}
+
+export interface EngagementResponse {
+  series: StickinessPoint[];
+}
+
+export interface PlatformRow {
+  platform: string;
+  events: number;
+  users: number;
+  pct: number;
+}
+
+export interface VersionRow {
+  appVersion: string;
+  events: number;
+  users: number;
+}
+
+export interface PlatformResponse {
+  platforms: PlatformRow[];
+  versions: VersionRow[];
+}
+
+export interface FunnelStep {
+  key: string;
+  label: string;
+  users: number;
+  conversionFromPrev: number;
+  conversionFromStart: number;
+}
+
+export interface FunnelResponse {
+  steps: FunnelStep[];
+}
+
+export interface RetentionRow {
+  cohortWeek: string;
+  cohortSize: number;
+  retained: (number | null)[];
+  retainedPct: (number | null)[];
+}
+
+export interface RetentionResponse {
+  weeks: number;
+  cohorts: RetentionRow[];
 }

@@ -34,6 +34,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/users/user-detail').then((m) => m.UserDetailComponent),
       },
 
+      // Insights module
+      {
+        path: 'insights',
+        canActivate: [permissionGuard('ANALYTICS:VIEW')],
+        loadComponent: () => import('./features/analytics/analytics').then((m) => m.AnalyticsComponent),
+      },
+
       // Content module
       {
         path: 'content',
@@ -172,6 +179,11 @@ export const routes: Routes = [
         path: 'clubs/:id',
         canActivate: [permissionGuard('CLUBS:VIEW')],
         loadComponent: () => import('./features/clubs/club-detail').then((m) => m.ClubDetailComponent),
+      },
+      {
+        path: 'clubs/:id/events/:eventId',
+        canActivate: [permissionGuard('CLUBS:VIEW')],
+        loadComponent: () => import('./features/clubs/club-event-detail').then((m) => m.ClubEventDetailComponent),
       },
 
       // Legal (single function)

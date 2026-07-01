@@ -1,23 +1,26 @@
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { IconComponent } from '../../shared/icon';
-import { TableColumn, TableComponent } from '../../shared/table';
+import { PaginatorComponent, TableColumn, TableComponent } from '../../shared/table';
+import { SelectComponent, SelectOption } from '../../shared/forms';
+import { SearchBarComponent } from '../../shared/search-bar.component';
 import { DefGridComponent, DefItemComponent, DetailHeaderComponent } from '../../shared/detail';
 import { ClubsApi } from '../../core/clubs.api';
 import { AuthService } from '../../core/auth.service';
 import { AdminDirectoryService } from '../../core/admin-directory.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { AuditEntryRow, ClubDetail } from '../../core/models';
+import { AuditEntryRow, ClubDetail, ClubMemberRow, ClubReportedContent, Page } from '../../core/models';
 
 @Component({
   selector: 'app-club-detail',
   standalone: true,
   imports: [
-    DatePipe, TitleCasePipe, RouterLink, IconComponent, TableComponent,
-    DetailHeaderComponent, DefGridComponent, DefItemComponent,
+    FormsModule, DatePipe, TitleCasePipe, RouterLink, IconComponent, TableComponent, PaginatorComponent,
+    SelectComponent, SearchBarComponent, DetailHeaderComponent, DefGridComponent, DefItemComponent,
   ],
   template: `
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
@@ -40,6 +43,9 @@ import { AuditEntryRow, ClubDetail } from '../../core/models';
 
       <div class="subtabs" style="margin-bottom:18px">
         <button [class.on]="tab() === 'overview'" (click)="tab.set('overview')">Overview</button>
+        <button [class.on]="tab() === 'members'" (click)="showMembers()">Members</button>
+        <button [class.on]="tab() === 'events'" (click)="tab.set('events')">Events</button>
+        <button [class.on]="tab() === 'reports'" (click)="showReports()">Reports@if (reportedCount() > 0) { <span class="tabbadge">{{ reportedCount() }}</span> }</button>
         <button [class.on]="tab() === 'audit'" (click)="showAudit()">Audit trail</button>
       </div>
 
@@ -66,15 +72,20 @@ import { AuditEntryRow, ClubDetail } from '../../core/models';
           <div class="ins"><span class="k">Total RSVPs</span><b>{{ ins.totalRsvps }}</b></div>
         </div>
       }
+      }
 
-      <div class="card" style="margin-top:18px">
-        <div class="card-h"><h3>Members</h3><span class="hint">showing up to 50</span></div>
-        <ui-table [columns]="memberCols()" [flush]="true" [empty]="c.members.length === 0" emptyText="No members.">
-          @for (m of c.members; track m.userId) {
+      @if (tab() === 'members') {
+        <div class="toolbar">
+          <div class="search"><ui-search-bar placeholder="Search @username…" (search)="onMemberSearch($event)" /></div>
+          <div class="filt"><ui-select [options]="roleOptions" [(ngModel)]="mRole" (ngModelChange)="applyMemberFilter()" /></div>
+          <div class="filt"><ui-select [options]="statusOptions" [(ngModel)]="mStatus" (ngModelChange)="applyMemberFilter()" /></div>
+        </div>
+        <ui-table [columns]="memberCols()" [loading]="mLoading()" [empty]="(members()?.content?.length ?? 0) === 0" emptyText="No members match.">
+          @for (m of members()?.content ?? []; track m.userId) {
             <tr>
               <td><a [routerLink]="['/users', m.userId]">{{ m.username ? '@' + m.username : '#' + m.userId }}</a></td>
-              <td>{{ m.role | titlecase }}</td>
-              <td><span class="pill" [class]="m.status === 'ACTIVE' ? 'active' : 'dismissed'">{{ m.status | titlecase }}</span></td>
+              <td><span class="pill" [class]="roleClass(m.role)">{{ m.role | titlecase }}</span></td>
+              <td><span class="pill" [class]="m.status === 'ACTIVE' ? 'active' : 'review'">{{ m.status | titlecase }}</span></td>
               <td class="muted">{{ m.joinedAt ? (m.joinedAt | date: 'MMM d, y') : '—' }}</td>
               @if (canEdit()) {
                 <td class="rowact">
@@ -86,29 +97,59 @@ import { AuditEntryRow, ClubDetail } from '../../core/models';
             </tr>
           }
         </ui-table>
-      </div>
+        <ui-paginator [pageIndex]="mPageIndex()" [totalPages]="members()?.totalPages ?? 0"
+          [totalElements]="members()?.totalElements ?? 0" unit="member" (pageChange)="memberGoTo($event)" />
+      }
 
-      <div class="card" style="margin-top:18px">
-        <div class="card-h"><h3>Events</h3><span class="hint">showing up to 50</span></div>
-        <ui-table [columns]="eventCols()" [flush]="true" [empty]="c.events.length === 0" emptyText="No events.">
-          @for (e of c.events; track e.id) {
-            <tr>
-              <td><b>{{ e.title }}</b></td>
-              <td>{{ e.kind | titlecase }}</td>
-              <td class="muted">{{ e.startsAt ? (e.startsAt | date: 'MMM d, y, HH:mm') : '—' }}</td>
-              <td><span class="count">{{ e.rsvpCount }}</span></td>
-              <td><span class="pill" [class]="e.removed ? 'banned' : 'active'">{{ e.removed ? 'Removed' : 'Active' }}</span></td>
-              @if (canEdit()) {
-                <td class="rowact">
-                  @if (!e.removed) {
-                    <button class="link danger" (click)="removeEvent(c, e)" [disabled]="busy()">Remove</button>
-                  } @else { <span class="muted">—</span> }
-                </td>
+      @if (tab() === 'events') {
+        <div class="card">
+          <div class="card-h"><h3>Events</h3><span class="hint">showing up to 50</span></div>
+          <ui-table [columns]="eventCols()" [flush]="true" [empty]="c.events.length === 0" emptyText="No events.">
+            @for (e of c.events; track e.id) {
+              <tr>
+                <td><a [routerLink]="['/clubs', c.id, 'events', e.id]"><b>{{ e.title }}</b></a></td>
+                <td>{{ e.kind | titlecase }}</td>
+                <td class="muted">{{ e.startsAt ? (e.startsAt | date: 'MMM d, y, HH:mm') : '—' }}</td>
+                <td><span class="count">{{ e.rsvpCount }}</span></td>
+                <td><span class="pill" [class]="e.removed ? 'banned' : 'active'">{{ e.removed ? 'Removed' : 'Active' }}</span></td>
+                @if (canEdit()) {
+                  <td class="rowact">
+                    @if (!e.removed) {
+                      <button class="link danger" (click)="removeEvent(c, e)" [disabled]="busy()">Remove</button>
+                    } @else { <span class="muted">—</span> }
+                  </td>
+                }
+              </tr>
+            }
+          </ui-table>
+        </div>
+      }
+
+      @if (tab() === 'reports') {
+        <div class="card">
+          <div class="card-h"><h3>Reported content</h3><span class="hint">posts &amp; comments in this club with moderation reports</span></div>
+          @if (reportedLoading()) {
+            <div class="empty">Loading…</div>
+          } @else if (reported().length) {
+            <ui-table [columns]="reportedCols" [flush]="true">
+              @for (r of reported(); track r.contentType + '-' + r.contentId) {
+                <tr class="clickable" (click)="openReport(r)">
+                  <td><span class="pill reason">{{ r.contentType | titlecase }}</span></td>
+                  <td class="snip">{{ plainMentions(r.snippet) || '(no content)' }}</td>
+                  <td>{{ r.authorUsername ? '@' + r.authorUsername : (r.authorUserId ? '#' + r.authorUserId : '—') }}</td>
+                  <td>
+                    @if (r.openReports > 0) { <span class="tag rose"><lucide-icon name="flag" [size]="11" /> {{ r.openReports }} open</span> }
+                    @else { <span class="tag muted">{{ r.totalReports }} reviewed</span> }
+                  </td>
+                  <td class="muted">{{ r.latestReportAt ? (r.latestReportAt | date: 'MMM d, y') : '—' }}</td>
+                  <td class="rowact"><lucide-icon name="chevron-right" [size]="15" /></td>
+                </tr>
               }
-            </tr>
+            </ui-table>
+          } @else {
+            <div class="empty">No reported content in this club. 🎉</div>
           }
-        </ui-table>
-      </div>
+        </div>
       }
 
       @if (tab() === 'audit') {
@@ -144,6 +185,12 @@ import { AuditEntryRow, ClubDetail } from '../../core/models';
     .crumb { color: var(--muted-2); font-size: 12px; margin: 0; }
     .count { font-weight: 700; }
     .about { margin-bottom: 18px; }
+    .tabbadge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 999px; background: var(--rose); color: #fff; font-size: 10px; font-weight: 700; }
+    .snip { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+    .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; }
+    .tag.rose { color: var(--rose); background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.25); }
+    .tag.muted { color: var(--muted-2); background: var(--surface-2); border: 1px solid var(--line); font-weight: 600; }
+    tr.clickable { cursor: pointer; } tr.clickable:hover { background: var(--surface-2); }
     .insights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; padding: 0; overflow: hidden; }
     @media (max-width: 720px) { .insights { grid-template-columns: repeat(2, 1fr); } }
     .insights .ins { padding: 15px 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -162,6 +209,7 @@ export class ClubDetailComponent implements OnInit {
   private readonly api = inject(ClubsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   readonly dir = inject(AdminDirectoryService);
   private readonly confirm = inject(ConfirmService);
   private readonly toast = inject(ToastService);
@@ -169,10 +217,33 @@ export class ClubDetailComponent implements OnInit {
   readonly club = signal<ClubDetail | null>(null);
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
-  readonly tab = signal<'overview' | 'audit'>('overview');
+  readonly tab = signal<'overview' | 'members' | 'events' | 'reports' | 'audit'>('overview');
   readonly audit = signal<AuditEntryRow[]>([]);
   readonly auditLoading = signal(false);
   private auditLoaded = false;
+
+  readonly reported = signal<ClubReportedContent[]>([]);
+  readonly reportedLoading = signal(false);
+  readonly reportedCount = signal(0);
+  private reportedLoaded = false;
+  readonly reportedCols: TableColumn[] = [
+    { label: 'Type' }, { label: 'Content' }, { label: 'Author' }, { label: 'Reports' }, { label: 'Latest' }, { label: '', align: 'right' },
+  ];
+
+  readonly members = signal<Page<ClubMemberRow> | null>(null);
+  readonly mLoading = signal(false);
+  readonly mPageIndex = signal(0);
+  private membersLoaded = false;
+  mRole = '';
+  mStatus = '';
+  private mQ = '';
+  readonly roleOptions: SelectOption[] = [
+    { value: '', label: 'All roles' }, { value: 'OWNER', label: 'Owner' },
+    { value: 'ADMIN', label: 'Admin' }, { value: 'MEMBER', label: 'Member' },
+  ];
+  readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'All statuses' }, { value: 'ACTIVE', label: 'Active' }, { value: 'INVITED', label: 'Invited' },
+  ];
 
   readonly canEdit = computed(() => this.auth.can('CLUBS:EDIT'));
   readonly memberCols = computed<TableColumn[]>(() => {
@@ -194,11 +265,63 @@ export class ClubDetailComponent implements OnInit {
       next: (c) => this.club.set(c),
       error: () => this.error.set('Could not load this club.'),
     });
+    // Preflight the reported-content count so the Reports tab badge shows immediately.
+    this.api.reportedContent(id).subscribe({
+      next: (r) => { this.reported.set(r.items); this.reportedLoaded = true; this.reportedCount.set(r.items.filter((x) => x.openReports > 0).length); },
+      error: () => {},
+    });
+  }
+
+  showReports(): void {
+    this.tab.set('reports');
+    if (this.reportedLoaded) { return; }
+    const c = this.club();
+    if (!c) { return; }
+    this.reportedLoading.set(true);
+    this.api.reportedContent(c.id).subscribe({
+      next: (r) => { this.reported.set(r.items); this.reportedLoaded = true; this.reportedLoading.set(false); this.reportedCount.set(r.items.filter((x) => x.openReports > 0).length); },
+      error: () => this.reportedLoading.set(false),
+    });
+  }
+
+  openReport(r: ClubReportedContent): void {
+    if (r.latestReportId != null) { void this.router.navigate(['/moderation', r.latestReportId]); }
   }
 
   initials(name: string): string {
     return (name || '?').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   }
+
+  /** Flatten `{@}[Name](id)` mention tokens to plain `@Name` for previews. */
+  plainMentions(text: string | null): string {
+    return (text || '').replace(/\{@\}\[([^\]]+)\]\((\d+)\)/g, '@$1');
+  }
+
+  roleClass(role: string): string {
+    return role === 'OWNER' ? 'resolved' : role === 'ADMIN' ? 'review' : 'dismissed';
+  }
+
+  showMembers(): void {
+    this.tab.set('members');
+    if (!this.membersLoaded) { this.membersLoaded = true; this.loadMembers(); }
+  }
+
+  private loadMembers(): void {
+    const c = this.club();
+    if (!c) { return; }
+    this.mLoading.set(true);
+    this.api.members(c.id, {
+      role: this.mRole || null, status: this.mStatus || null, q: this.mQ.trim() || null,
+      page: this.mPageIndex(), size: 20,
+    }).subscribe({
+      next: (p) => { this.members.set(p); this.mLoading.set(false); },
+      error: () => this.mLoading.set(false),
+    });
+  }
+
+  onMemberSearch(v: string): void { this.mQ = v; this.mPageIndex.set(0); this.loadMembers(); }
+  applyMemberFilter(): void { this.mPageIndex.set(0); this.loadMembers(); }
+  memberGoTo(i: number): void { this.mPageIndex.set(i); this.loadMembers(); }
 
   async remove(c: ClubDetail): Promise<void> {
     const res = await this.confirm.confirm({
@@ -225,7 +348,11 @@ export class ClubDetailComponent implements OnInit {
       tone: 'danger',
     });
     if (!res.confirmed) { return; }
-    this.run(this.api.removeMember(c.id, m.userId), 'Member removed.');
+    this.busy.set(true);
+    this.api.removeMember(c.id, m.userId).subscribe({
+      next: (updated) => { this.busy.set(false); this.club.set(updated); this.toast.success('Member removed.'); this.loadMembers(); },
+      error: () => { this.busy.set(false); this.toast.error('Action failed — check the admin API / internal hook.'); },
+    });
   }
 
   showAudit(): void {
