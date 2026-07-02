@@ -23,7 +23,7 @@ const STATUS_OPTIONS: SelectOption[] = [
   standalone: true,
   imports: [FormsModule, DatePipe, TitleCasePipe, InputComponent, MultiSelectComponent, IconComponent, TableComponent, PaginatorComponent, PageHeaderComponent],
   template: `
-    <ui-page-header icon="users" title="Users" subtitle="Member directory & account actions"
+    <ui-page-header eyebrow="Community" icon="users" title="Users" subtitle="Member directory & account actions"
                     tint="cyan" [count]="page()?.totalElements ?? null">
       <button page-actions class="btn" (click)="exportCsv()" [disabled]="(page()?.content?.length ?? 0) === 0">
         <lucide-icon name="download" [size]="15" /> Export

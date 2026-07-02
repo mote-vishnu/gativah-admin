@@ -57,7 +57,7 @@ const EMPTY_DRAFT: Draft = {
     InputComponent, SelectComponent, MultiSelectComponent, TextareaComponent, DateComponent, TableComponent, PaginatorComponent, PageHeaderComponent,
   ],
   template: `
-    <ui-page-header icon="scale" title="Legal & Disclosure" subtitle="Legal requests & the disclosure ledger"
+    <ui-page-header eyebrow="Governance" icon="scale" title="Legal & Disclosure" subtitle="Legal requests & the disclosure ledger"
                     tint="amber" [count]="page()?.totalElements ?? null">
       @if (canEdit()) {
         <button page-actions class="btn primary" (click)="toggleCreate()"><lucide-icon name="plus" [size]="15" /> Log request</button>

@@ -203,6 +203,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/legal/legal-detail').then((m) => m.LegalDetailComponent),
       },
 
+      // Privacy & DSAR
+      {
+        path: 'privacy',
+        canActivate: [permissionGuard('PRIVACY:VIEW')],
+        loadComponent: () => import('./features/privacy/privacy').then((m) => m.PrivacyComponent),
+      },
+
       { path: 'audit', loadComponent: () => import('./features/audit/audit').then((m) => m.AuditComponent) },
       { path: 'security', loadComponent: () => import('./features/security/security').then((m) => m.SecurityComponent) },
       { path: 'forbidden', loadComponent: () => import('./features/forbidden/forbidden').then((m) => m.ForbiddenComponent) },

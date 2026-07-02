@@ -30,7 +30,7 @@ const SOURCE_OPTIONS: SelectOption[] = [
     TableComponent, PaginatorComponent, DrawerComponent,
   ],
   template: `
-    <ui-page-header [icon]="tab() === 'refunds' ? 'receipt-text' : 'credit-card'"
+    <ui-page-header eyebrow="Finance" [icon]="tab() === 'refunds' ? 'receipt-text' : 'credit-card'"
                     [title]="tab() === 'refunds' ? 'Refunds' : 'Entitlements'"
                     [subtitle]="tab() === 'refunds' ? 'Refunds & chargebacks' : 'Comp grants & entitlement registry'"
                     [tint]="tab() === 'refunds' ? 'rose' : 'green'">

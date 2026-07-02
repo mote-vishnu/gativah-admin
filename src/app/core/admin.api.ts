@@ -19,6 +19,8 @@ import {
   LegalRequestSummary,
   LegalStats,
   LegalTaskListRow,
+  BackupCodes,
+  MfaEnableResult,
   MfaStart,
   MfaStatus,
   Page,
@@ -194,8 +196,12 @@ export class MfaApi {
     return this.http.post<MfaStart>(`${this.base}/start`, {});
   }
 
-  enable(code: string): Observable<MfaStatus> {
-    return this.http.post<MfaStatus>(`${this.base}/enable`, { code });
+  enable(code: string): Observable<MfaEnableResult> {
+    return this.http.post<MfaEnableResult>(`${this.base}/enable`, { code });
+  }
+
+  regenerateBackupCodes(): Observable<BackupCodes> {
+    return this.http.post<BackupCodes>(`${this.base}/backup-codes`, {});
   }
 }
 

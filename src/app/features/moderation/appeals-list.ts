@@ -24,7 +24,7 @@ const STATUS_OPTIONS: SelectOption[] = [
   standalone: true,
   imports: [FormsModule, DatePipe, TitleCasePipe, RouterLink, SelectComponent, PageHeaderComponent, TableComponent, PaginatorComponent],
   template: `
-    <ui-page-header icon="scale" title="Appeals" subtitle="User appeals against moderation actions" tint="violet" [count]="page()?.totalElements ?? null" />
+    <ui-page-header eyebrow="Moderation" icon="scale" title="Appeals" subtitle="User appeals against moderation actions" tint="violet" [count]="page()?.totalElements ?? null" />
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
     @if (message()) { <div class="ok">✓ {{ message() }}</div> }

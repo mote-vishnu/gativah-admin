@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
-import { EntitlementDef, EntitlementRow, GrantCompRequest, Page, RefundRow } from './models';
+import { EntitlementDef, EntitlementRow, GrantCompRequest, Page, RefundRequest, RefundRow } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class BillingApi {
@@ -32,5 +32,9 @@ export class BillingApi {
 
   revokeComp(userId: number, code: string): Observable<void> {
     return this.http.post<void>(`${this.base}/entitlements/revoke`, { userId, code });
+  }
+
+  refund(req: RefundRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/refunds`, req);
   }
 }

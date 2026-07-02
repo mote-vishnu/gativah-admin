@@ -16,7 +16,7 @@ import { Page, RoleResponse, StaffRow } from '../../core/models';
   standalone: true,
   imports: [FormsModule, DatePipe, TitleCasePipe, RouterLink, IconComponent, InputComponent, MultiSelectComponent, TableComponent, PageHeaderComponent],
   template: `
-    <ui-page-header icon="user-plus" title="Staff" subtitle="Admin accounts & role assignment"
+    <ui-page-header eyebrow="Platform" icon="user-plus" title="Staff" subtitle="Admin accounts & role assignment"
                     tint="orange" [count]="page()?.totalElements ?? null">
       @if (canAdd()) {
         <button page-actions class="btn primary" (click)="toggleInvite()"><lucide-icon name="user-plus" [size]="15" /> Invite admin</button>

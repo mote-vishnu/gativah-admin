@@ -40,7 +40,7 @@ const OVERDUE_HOURS = 24;
   selector: 'app-moderation-list',
   standalone: true,
   template: `
-    <ui-page-header icon="flag" title="Grievance queue" subtitle="Triage open content reports"
+    <ui-page-header eyebrow="Moderation" icon="flag" title="Grievance queue" subtitle="Triage open content reports"
                     tint="rose" [count]="page()?.totalElements ?? null">
       <button page-actions class="btn" (click)="exportCsv()" [disabled]="(page()?.content?.length ?? 0) === 0">
         <lucide-icon name="download" [size]="15" /> Export

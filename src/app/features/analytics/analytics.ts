@@ -38,7 +38,7 @@ const EVENT_LABELS: Record<string, string> = {
   standalone: true,
   imports: [DecimalPipe, IconComponent, PageHeaderComponent, ChartComponent, WorldMapComponent, FunnelChartComponent, RetentionGridComponent],
   template: `
-    <ui-page-header icon="chart-line" title="Insights" subtitle="Product analytics · engagement, retention & activation" tint="violet">
+    <ui-page-header eyebrow="Overview" icon="chart-line" title="Insights" subtitle="Product analytics · engagement, retention & activation" tint="violet">
       <div page-actions class="ranges">
         @for (r of ranges; track r.days) {
           <button class="chip" [class.on]="range() === r.days" (click)="setRange(r.days)">{{ r.label }}</button>

@@ -30,7 +30,7 @@ interface ActionMeta { icon: string; tint: string; }
   standalone: true,
   imports: [FormsModule, DatePipe, RouterLink, IconComponent, InputComponent, SelectComponent, DateRangeComponent, PaginatorComponent, PageHeaderComponent],
   template: `
-    <ui-page-header icon="scroll-text" title="Audit Log" subtitle="Every operator action · append-only"
+    <ui-page-header eyebrow="Platform" icon="scroll-text" title="Audit Log" subtitle="Every operator action · append-only"
                     tint="cyan" [count]="stats()?.total ?? (page()?.totalElements ?? null)">
       <button page-actions class="btn" (click)="exportCsv()" [disabled]="(page()?.content?.length ?? 0) === 0">
         <lucide-icon name="download" [size]="15" /> Export

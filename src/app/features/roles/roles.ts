@@ -27,7 +27,7 @@ interface Editor {
   standalone: true,
   imports: [FormsModule, TitleCasePipe, IconComponent, InputComponent, CheckboxComponent, TableComponent, DrawerComponent, PageHeaderComponent],
   template: `
-    <ui-page-header icon="shield-check" title="Roles & Permissions" subtitle="Permission groups assigned to staff"
+    <ui-page-header eyebrow="Platform" icon="shield-check" title="Roles & Permissions" subtitle="Permission groups assigned to staff"
                     tint="violet" [count]="roles().length">
       @if (canAdd()) {
         <button page-actions class="btn primary" (click)="startCreate()"><lucide-icon name="plus" [size]="15" /> New role</button>

@@ -17,7 +17,7 @@ import { ActiveSessionRow, MfaStart, SecurityOverview } from '../../core/models'
   standalone: true,
   imports: [FormsModule, DatePipe, InputComponent, IconComponent, TableComponent, PageHeaderComponent],
   template: `
-    <ui-page-header icon="shield-check" title="Security" subtitle="Account protection & operator sessions" tint="green" />
+    <ui-page-header eyebrow="Platform" icon="shield-check" title="Security" subtitle="Account protection & operator sessions" tint="green" />
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
@@ -53,6 +53,10 @@ import { ActiveSessionRow, MfaStart, SecurityOverview } from '../../core/models'
 
       @if (enrolled()) {
         <p class="muted">MFA is active on your account. You'll be asked for a 6-digit code at each sign-in.</p>
+        <div class="bcline">
+          <span [class.bad]="remaining() === 0"><lucide-icon name="shield-check" [size]="14" /> {{ remaining() }} recovery {{ remaining() === 1 ? 'code' : 'codes' }} left</span>
+          <button class="btn sm" (click)="regenerate()" [disabled]="busy()">Regenerate recovery codes</button>
+        </div>
       } @else if (!started()) {
         <p class="muted">Protect your operator account with an authenticator app (Google Authenticator, 1Password, Authy…).</p>
         <button class="btn primary" (click)="start()" [disabled]="busy()">Set up MFA</button>
@@ -73,6 +77,20 @@ import { ActiveSessionRow, MfaStart, SecurityOverview } from '../../core/models'
         </ol>
       }
     </div>
+
+    @if (backupCodes(); as codes) {
+      <div class="card bcodes">
+        <div class="card-h"><h3>Save your recovery codes</h3><button class="close" (click)="backupCodes.set(null)"><lucide-icon name="x" [size]="16" /></button></div>
+        <p class="muted">Each code works once if you lose your authenticator. Store them somewhere safe — they won't be shown again.</p>
+        <div class="codegrid">
+          @for (c of codes; track c) { <span class="bc mono">{{ c }}</span> }
+        </div>
+        <div class="bcacts">
+          <button class="btn sm" (click)="copyCodes(codes)"><lucide-icon name="check" [size]="14" /> Copy</button>
+          <button class="btn sm" (click)="downloadCodes(codes)"><lucide-icon name="download" [size]="14" /> Download</button>
+        </div>
+      </div>
+    }
 
     @if (canViewOrg()) {
       <div class="card" style="margin-top:18px">
@@ -103,6 +121,15 @@ import { ActiveSessionRow, MfaStart, SecurityOverview } from '../../core/models'
     .uri { font-size: 11px; color: var(--muted-2); word-break: break-all; }
     .confirm { display: flex; gap: 10px; margin-top: 8px; align-items: flex-start; }
     .code { width: 160px; }
+    .btn.sm { padding: 6px 11px; font-size: 12px; }
+    .bcline { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+    .bcline span { display: inline-flex; align-items: center; gap: 6px; }
+    .bcline .bad { color: var(--rose); }
+    .bcodes { max-width: 640px; margin-top: 18px; border-color: var(--brand-line); }
+    .bcodes .close { margin-left: auto; background: none; border: 0; color: var(--muted); cursor: pointer; }
+    .codegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 14px 0; }
+    .bc { text-align: center; font-size: 14px; letter-spacing: 0.08em; padding: 9px 6px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; }
+    .bcacts { display: flex; gap: 9px; }
     .kpi .val.bad { color: var(--rose); } .kpi .val.c-green { color: var(--green); } .kpi .val.c-cyan { color: var(--cyan); } .kpi .val.c-violet { color: var(--violet); } .kpi .val.c-orange { color: var(--brand); }
     .warn { border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.05); margin-bottom: 18px; }
     .warn-h { display: flex; align-items: center; gap: 10px; font-size: 14px; }
@@ -128,6 +155,8 @@ export class SecurityComponent implements OnInit {
   readonly start_ = signal<MfaStart | null>(null);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
+  readonly remaining = signal(0);
+  readonly backupCodes = signal<string[] | null>(null);
   code = '';
 
   readonly overview = signal<SecurityOverview | null>(null);
@@ -143,7 +172,7 @@ export class SecurityComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.status().subscribe({
-      next: (s) => this.enrolled.set(s.enrolled),
+      next: (s) => { this.enrolled.set(s.enrolled); this.remaining.set(s.backupCodesRemaining); },
       error: () => this.error.set('Could not load MFA status.'),
     });
     if (this.canViewOrg()) {
@@ -201,8 +230,44 @@ export class SecurityComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     this.api.enable(this.code.trim()).subscribe({
-      next: (s) => { this.busy.set(false); this.enrolled.set(s.enrolled); this.started.set(false); if (this.canViewOrg()) { this.loadOrg(); } },
+      next: (r) => {
+        this.busy.set(false);
+        this.enrolled.set(r.enrolled);
+        this.started.set(false);
+        this.backupCodes.set(r.backupCodes);
+        this.remaining.set(r.backupCodes.length);
+        if (this.canViewOrg()) { this.loadOrg(); }
+      },
       error: () => { this.busy.set(false); this.error.set('Invalid code — check the time on your device and try again.'); },
     });
+  }
+
+  async regenerate(): Promise<void> {
+    const res = await this.confirm.confirm({
+      title: 'Regenerate recovery codes?',
+      message: 'Your existing recovery codes stop working immediately and a new set is issued.',
+      confirmLabel: 'Regenerate',
+    });
+    if (!res.confirmed) { return; }
+    this.busy.set(true);
+    this.api.regenerateBackupCodes().subscribe({
+      next: (r) => { this.busy.set(false); this.backupCodes.set(r.codes); this.remaining.set(r.codes.length); this.toast.success('New recovery codes issued.'); },
+      error: () => { this.busy.set(false); this.toast.error('Could not regenerate recovery codes.'); },
+    });
+  }
+
+  copyCodes(codes: string[]): void {
+    void navigator.clipboard?.writeText(codes.join('\n'));
+    this.toast.success('Recovery codes copied.');
+  }
+
+  downloadCodes(codes: string[]): void {
+    const blob = new Blob([`Gativah Admin — MFA recovery codes\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gativah-admin-recovery-codes.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

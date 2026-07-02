@@ -28,7 +28,7 @@ const STATUS_OPTIONS: SelectOption[] = [
   standalone: true,
   imports: [FormsModule, DatePipe, TitleCasePipe, RouterLink, InputComponent, MultiSelectComponent, IconComponent, TableComponent, PaginatorComponent, PageHeaderComponent, PostCardComponent],
   template: `
-    <ui-page-header [icon]="view() === 'stories' ? 'image' : 'message-square'"
+    <ui-page-header eyebrow="Moderation" [icon]="view() === 'stories' ? 'image' : 'message-square'"
                     [title]="view() === 'stories' ? 'Stories' : 'Posts & comments'"
                     [subtitle]="view() === 'stories' ? 'Ephemeral stories · view & reaction counts' : 'Posts & comments · proactive moderation'"
                     tint="violet" [count]="headerCount()" />

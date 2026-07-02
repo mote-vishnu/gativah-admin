@@ -256,9 +256,15 @@ export class RoleDetailComponent implements OnInit {
       name: r.system ? undefined : this.editName.trim(),
       description: this.editDesc.trim() || null,
       permissionIds: [...this.editPerms()],
+      version: r.version, // optimistic lock — 409 if someone else edited since load
     }).subscribe({
       next: (updated) => { this.busy.set(false); this.editing.set(false); this.role.set(updated); this.toast.success('Role updated.'); },
-      error: () => { this.busy.set(false); this.toast.error('Save failed (duplicate name?).'); },
+      error: (e) => {
+        this.busy.set(false);
+        this.toast.error(e?.status === 409
+          ? 'This role was changed by someone else — reload and try again.'
+          : 'Save failed (duplicate name?).');
+      },
     });
   }
 

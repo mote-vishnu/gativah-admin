@@ -8,8 +8,11 @@ import { PaginatorComponent, SortState, TableColumn, TableComponent } from '../.
 import { ChartComponent } from '../../shared/chart';
 
 import { FinanceApi } from '../../core/finance.api';
+import { BillingApi } from '../../core/billing.api';
+import { AuthService } from '../../core/auth.service';
 import { ExportService } from '../../core/export.service';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 import {
   FinanceOverview,
   FinanceRevenueResponse,
@@ -259,6 +262,15 @@ type View = 'dashboard' | 'history';
           <div class="r"><span>Notification</span><b class="mono">{{ d.notificationUuid ?? '—' }}</b></div>
         </section>
 
+        @if (canRefund() && !isNegative(d.type)) {
+          <div class="drawer-act">
+            <button class="btn danger full" (click)="refundTxn(d)" [disabled]="refunding()">
+              <lucide-icon name="receipt-text" [size]="15" /> Issue refund
+            </button>
+            <p class="muted xs">Processed by the billing service (idempotent) and written to the audit log.</p>
+          </div>
+        }
+
         @if (d.subscription; as s) {
           <h4 class="drawer-sub">Subscription</h4>
           <section class="dl">
@@ -362,9 +374,15 @@ type View = 'dashboard' | 'history';
 })
 export class FinanceComponent implements OnInit {
   private readonly api = inject(FinanceApi);
+  private readonly billing = inject(BillingApi);
+  private readonly auth = inject(AuthService);
+  private readonly confirm = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
   private readonly exporter = inject(ExportService);
   private readonly toast = inject(ToastService);
+
+  readonly canRefund = computed(() => this.auth.can('BILLING:EDIT'));
+  readonly refunding = signal(false);
 
   readonly txnCols: TableColumn[] = [
     { label: 'Txn' }, { label: 'User' }, { label: 'Product' }, { label: 'Type', sortKey: 'type' },
@@ -616,6 +634,35 @@ export class FinanceComponent implements OnInit {
 
   closeTxn(): void {
     this.txnDetail.set(null);
+  }
+
+  async refundTxn(d: TransactionDetail): Promise<void> {
+    const res = await this.confirm.confirm({
+      title: `Refund transaction #${d.id}?`,
+      message: `A full refund of ${this.amount(d.grossAmount, d.grossCurrency)} will be processed by the billing service and written to the audit log. This cannot be undone.`,
+      confirmLabel: 'Issue refund',
+      tone: 'danger',
+      input: { label: 'Reason', placeholder: 'e.g. duplicate charge, goodwill…', required: true, multiline: true },
+    });
+    if (!res.confirmed) return;
+    const reason = (res.value ?? '').trim();
+    if (!reason) {
+      this.toast.error('A reason is required to issue a refund.');
+      return;
+    }
+    this.refunding.set(true);
+    this.billing.refund({ transactionId: d.id, amount: null, reason }).subscribe({
+      next: () => {
+        this.refunding.set(false);
+        this.toast.success(`Refund issued for transaction #${d.id}.`);
+        this.openTxn(d.id); // reload the drawer so the new REFUND appears in the chain
+        this.loadTxns();
+      },
+      error: () => {
+        this.refunding.set(false);
+        this.toast.error('Refund failed — the billing service did not confirm it. No refund was applied.');
+      },
+    });
   }
 }
 

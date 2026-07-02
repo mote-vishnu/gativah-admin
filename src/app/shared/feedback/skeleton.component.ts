@@ -50,8 +50,11 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
     :host { display: block; }
     .bar { display: block; height: 12px; border-radius: 6px; background: var(--surface-3); }
     .shimmer { position: relative; overflow: hidden; }
-    .shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent); animation: sk 1.3s infinite; }
+    .shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 8%, transparent) 45%, color-mix(in srgb, var(--brand) 10%, transparent) 55%, transparent);
+      animation: sk 1.35s var(--ease) infinite; }
     @keyframes sk { 100% { transform: translateX(100%); } }
+    @media (prefers-reduced-motion: reduce) { .shimmer::after { animation: none; opacity: 0.4; transform: none; } }
 
     .sk-table { display: flex; flex-direction: column; gap: 14px; padding: 8px 2px; }
     .sk-row { display: flex; gap: 16px; }

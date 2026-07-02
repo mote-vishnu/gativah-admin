@@ -15,7 +15,7 @@ import { RegionBanRow } from '../../core/models';
   standalone: true,
   imports: [DatePipe, TableComponent, PageHeaderComponent],
   template: `
-    <ui-page-header icon="globe" title="Region bans" subtitle="Geo-restrictions on posts" tint="violet"
+    <ui-page-header eyebrow="Moderation" icon="globe" title="Region bans" subtitle="Geo-restrictions on posts" tint="violet"
                     [count]="activeCount()" />
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }

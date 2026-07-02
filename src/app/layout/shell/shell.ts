@@ -134,13 +134,19 @@ const MODULES: NavModule[] = [
     sections: [{ items: [{ label: 'Requests', icon: 'scale', link: '/legal', perm: 'LEGAL:VIEW' }] }],
   },
   {
-    label: 'Platform', icon: 'shield-check', match: ['/team', '/audit', '/security'],
+    label: 'Platform', icon: 'shield-check', match: ['/team', '/audit', '/security', '/privacy'],
     sections: [
       {
         title: 'Team',
         items: [
           { label: 'Staff', icon: 'users', link: '/team/staff', perm: 'STAFF:VIEW' },
           { label: 'Roles & Permissions', icon: 'shield-check', link: '/team/roles', perm: 'ROLES:VIEW' },
+        ],
+      },
+      {
+        title: 'Privacy & data',
+        items: [
+          { label: 'DSAR & Erasure', icon: 'shield-check', link: '/privacy', perm: 'PRIVACY:VIEW' },
         ],
       },
       {

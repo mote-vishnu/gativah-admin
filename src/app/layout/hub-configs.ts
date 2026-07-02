@@ -20,7 +20,7 @@ export const HOME_HUB: HubConfig = {
       title: 'Governance',
       tiles: [
         { label: 'Legal & Disclosure', desc: 'Lawful requests, holds & disclosure', icon: 'scale', link: '/legal', tint: 'tint-violet', perm: 'LEGAL:VIEW' },
-        { label: 'Platform', desc: 'Staff, roles & audit log', icon: 'shield-check', link: '/team/staff', tint: 'tint-amber', perm: 'STAFF:VIEW' },
+        { label: 'Platform', desc: 'Staff, roles, privacy & audit log', icon: 'shield-check', link: '/team/staff', tint: 'tint-amber', perm: 'STAFF:VIEW' },
       ],
     },
   ],

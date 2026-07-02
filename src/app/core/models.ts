@@ -380,6 +380,7 @@ export interface RoleResponse {
   permissionIds: number[];
   permissions: string[];
   userCount: number;
+  version: number;
 }
 
 export interface RolesResponse {
@@ -414,6 +415,7 @@ export interface UpdateRoleRequest {
   name?: string;
   description?: string | null;
   permissionIds?: number[];
+  version?: number;
 }
 
 // ── Legal & Disclosure ────────────────────────────────────────
@@ -908,15 +910,109 @@ export interface GrantCompRequest {
   reason: string | null;
 }
 
+export interface RefundRequest {
+  transactionId: number;
+  amount: number | null; // null = full refund
+  reason: string;
+}
+
+// ── Privacy & DSAR ─────────────────────────────────────────────
+export interface DsarSummary {
+  id: number;
+  reference: string;
+  requestType: string;
+  regulation: string;
+  subjectUserId: number | null;
+  subjectEmail: string;
+  subjectName: string | null;
+  status: string;
+  identityVerified: boolean;
+  receivedAt: string;
+  dueAt: string | null;
+  overdue: boolean;
+  purgeAt: string | null;
+}
+
+export interface DsarEventRow {
+  id: number;
+  event: string;
+  detail: string | null;
+  actorAdminId: number | null;
+  createdAt: string;
+}
+
+export interface DsarDetail {
+  id: number;
+  reference: string;
+  requestType: string;
+  regulation: string;
+  subjectUserId: number | null;
+  subjectEmail: string;
+  subjectName: string | null;
+  status: string;
+  identityVerified: boolean;
+  verifiedAt: string | null;
+  verifiedBy: number | null;
+  receivedAt: string;
+  dueAt: string | null;
+  completedAt: string | null;
+  erasureExecutedAt: string | null;
+  purgeAt: string | null;
+  resolution: string | null;
+  resolutionNote: string | null;
+  exportUri: string | null;
+  notes: string | null;
+  version: number;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+  events: DsarEventRow[];
+}
+
+export interface DsarStats {
+  open: number;
+  verifying: number;
+  inProgress: number;
+  overdue: number;
+  completed: number;
+  awaitingPurge: number;
+}
+
+export interface CreateDsarRequest {
+  requestType: string;
+  regulation: string | null;
+  subjectUserId: number | null;
+  subjectEmail: string;
+  subjectName: string | null;
+  dueAt: string | null;
+  notes: string | null;
+}
+
+export interface PrivacySettings {
+  erasureRetentionDays: number;
+  updatedBy: number | null;
+  updatedAt: string | null;
+}
+
 // ── MFA ───────────────────────────────────────────────────────
 export interface MfaStatus {
   enrolled: boolean;
+  backupCodesRemaining: number;
 }
 
 export interface MfaStart {
   secret: string;
   otpauthUri: string;
   alreadyEnrolled: boolean;
+}
+
+export interface MfaEnableResult {
+  enrolled: boolean;
+  backupCodes: string[];
+}
+
+export interface BackupCodes {
+  codes: string[];
 }
 
 // ── Analytics / Insights ─────────────────────────────────────────

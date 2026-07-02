@@ -12,7 +12,7 @@ import { ModerationActionRow, Page } from '../../core/models';
   standalone: true,
   imports: [DatePipe, TitleCasePipe, PageHeaderComponent, TableComponent, PaginatorComponent],
   template: `
-    <ui-page-header icon="scroll-text" title="Moderation history" subtitle="Every moderation action taken" tint="cyan" [count]="page()?.totalElements ?? null" />
+    <ui-page-header eyebrow="Moderation" icon="scroll-text" title="Moderation history" subtitle="Every moderation action taken" tint="cyan" [count]="page()?.totalElements ?? null" />
 
     @if (error()) { <div class="note">⚠ {{ error() }}</div> }
 
