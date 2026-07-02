@@ -1,0 +1,56 @@
+:host { display: block; }
+
+.hact { display: flex; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; }
+.btn.ghost { background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); }
+.btn.full { width: 100%; justify-content: center; }
+
+/* .subtabs uses the global segmented-control style from styles.scss — just space it here. */
+.subtabs { margin: 0 0 18px; }
+
+.pad { padding: 24px 4px; }
+.note { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; font-size: 12.5px; color: var(--muted-2); }
+.note lucide-icon { color: var(--amber); }
+
+/* Plan cards — mirrors the Billing Ops mockup */
+.plangrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+.plan {
+  position: relative; border: 1px solid var(--line); border-radius: 15px; padding: 20px;
+  background: var(--surface-2); text-align: left; color: var(--fg); animation: rise .3s ease both;
+}
+.plan.clickable { cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.plan.clickable:hover { border-color: var(--brand-line); transform: translateY(-2px); }
+.plan.feat { border-color: var(--brand-line); box-shadow: inset 0 0 0 1px var(--brand-line); }
+.plan.off { opacity: 0.6; }
+.plan .ed { position: absolute; top: 15px; right: 15px; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted-2); }
+.plan .pbadge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--brand); background: var(--brand-tint, rgba(249,115,22,0.12)); border: 1px solid var(--brand-line); border-radius: 999px; padding: 2px 8px; margin-bottom: 8px; }
+.plan .fam { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); }
+.plan .pname { font-family: var(--sans); font-size: 16px; font-weight: 700; margin-top: 2px; }
+.plan .price { font-family: var(--sans); font-size: 27px; font-weight: 800; margin: 8px 0 2px; letter-spacing: -0.02em; }
+.plan .price small { font-size: 13px; color: var(--muted-2); font-weight: 500; }
+.plan .pcode { font-family: var(--mono, monospace); font-size: 11.5px; color: var(--muted-2); word-break: break-all; }
+.plan ul { list-style: none; padding: 0; margin: 14px 0 0; font-size: 12.5px; color: var(--muted-1); }
+.plan ul li { padding: 5px 0; display: flex; gap: 8px; }
+.plan ul li::before { content: "✓"; color: var(--green); }
+.plan .off-pill { margin-top: 14px; display: inline-block; }
+.plan.add {
+  display: grid; place-items: center; gap: 6px; border-style: dashed; color: var(--muted-2);
+  cursor: pointer; font: inherit; font-size: 14px; min-height: 150px;
+}
+.plan.add:hover { border-color: var(--brand-line); color: var(--fg); }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+
+.drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; animation: fade .15s ease; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 500px; max-width: 94vw; background: var(--surface); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; padding: 22px; box-shadow: -12px 0 32px rgba(0,0,0,0.28); animation: slidein .2s ease; }
+@keyframes fade { from { opacity: 0; } } @keyframes slidein { from { transform: translateX(24px); opacity: 0; } }
+.drawer-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.drawer-h h2 { font-family: var(--sans); font-size: 19px; font-weight: 800; margin: 8px 0 0; letter-spacing: -0.01em; }
+.iconbtn { background: none; border: 1px solid var(--line); border-radius: 9px; width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; color: var(--muted-1); }
+.iconbtn:hover { background: var(--surface-2); }
+
+.form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.form .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .form .grid2 { grid-template-columns: 1fr; } }
+.form .sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); margin: 8px 0 0; }
+.chk { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-1); }
+.drawer-act { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }

@@ -116,6 +116,7 @@ const MODULES: NavModule[] = [
       {
         title: 'Billing',
         items: [
+          { label: 'Plans', icon: 'dollar-sign', link: '/billing/plans', perm: 'BILLING:VIEW' },
           { label: 'Entitlements', icon: 'credit-card', link: '/billing/entitlements', perm: 'BILLING:VIEW' },
           { label: 'Refunds', icon: 'receipt-text', link: '/billing/refunds', perm: 'BILLING:VIEW' },
         ],

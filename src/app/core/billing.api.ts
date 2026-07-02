@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './environment';
-import { EntitlementDef, EntitlementRow, GrantCompRequest, Page, RefundRequest, RefundRow } from './models';
+import { EntitlementDef, EntitlementRow, GrantCompRequest, Page, PlanRow, PlanUpsertRequest, RefundRequest, RefundRow } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class BillingApi {
@@ -36,5 +36,21 @@ export class BillingApi {
 
   refund(req: RefundRequest): Observable<void> {
     return this.http.post<void>(`${this.base}/refunds`, req);
+  }
+
+  plans(): Observable<{ plans: PlanRow[] }> {
+    return this.http.get<{ plans: PlanRow[] }>(`${this.base}/plans`);
+  }
+
+  createPlan(req: PlanUpsertRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/plans`, req);
+  }
+
+  updatePlan(id: number, req: PlanUpsertRequest): Observable<void> {
+    return this.http.put<void>(`${this.base}/plans/${id}`, req);
+  }
+
+  setPlanActive(id: number, active: boolean): Observable<void> {
+    return this.http.post<void>(`${this.base}/plans/${id}/active`, { active });
   }
 }

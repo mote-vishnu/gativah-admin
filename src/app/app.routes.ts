@@ -143,6 +143,11 @@ export const routes: Routes = [
             data: { tab: 'refunds' },
             loadComponent: () => import('./features/billing/billing-list').then((m) => m.BillingListComponent),
           },
+          {
+            path: 'plans',
+            canActivate: [permissionGuard('BILLING:VIEW')],
+            loadComponent: () => import('./features/billing/plans').then((m) => m.PlansComponent),
+          },
         ],
       },
 

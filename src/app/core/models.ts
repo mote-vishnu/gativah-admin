@@ -916,6 +916,44 @@ export interface RefundRequest {
   reason: string;
 }
 
+// ── Subscription plans ─────────────────────────────────────────
+export interface PlanRow {
+  id: number;
+  code: string;
+  productFamily: string;
+  name: string;
+  description: string | null;
+  period: string;
+  storeProductIdIos: string | null;
+  storeProductIdAndroid: string | null;
+  basePlanIdAndroid: string | null;
+  entitlements: string; // CSV
+  priceAmount: number | null;
+  priceCurrency: string | null;
+  badge: string | null;
+  sortOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanUpsertRequest {
+  code: string;
+  productFamily: string;
+  name: string;
+  description: string | null;
+  period: string;
+  storeProductIdIos: string | null;
+  storeProductIdAndroid: string | null;
+  basePlanIdAndroid: string | null;
+  entitlements: string;
+  priceAmount: number | null;
+  priceCurrency: string | null;
+  badge: string | null;
+  sortOrder: number;
+  active: boolean;
+}
+
 // ── Privacy & DSAR ─────────────────────────────────────────────
 export interface DsarSummary {
   id: number;
