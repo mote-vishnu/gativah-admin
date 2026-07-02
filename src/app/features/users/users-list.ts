@@ -50,7 +50,7 @@ const STATUS_OPTIONS: SelectOption[] = [
               } @else {
                 <span class="av">{{ initials(u) }}</span>
               }
-              <div class="nm"><b>{{ '@' + u.username }}</b><span>{{ u.fullName || '—' }}</span></div>
+              <div class="nm"><b>{{ u.fullName || ('@' + u.username) }}</b><span>{{ '@' + u.username }}</span></div>
             </div>
           </td>
           <td class="muted">{{ u.email }}</td>

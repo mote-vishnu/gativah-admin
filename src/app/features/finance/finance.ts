@@ -1,7 +1,7 @@
 import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { IconComponent } from '../../shared/icon';
 import { DateRange, DateRangeComponent, SelectComponent, SelectOption } from '../../shared/forms';
 import { PaginatorComponent, SortState, TableColumn, TableComponent } from '../../shared/table';
@@ -28,7 +28,7 @@ type View = 'dashboard' | 'history';
 @Component({
   selector: 'app-finance',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, TitleCasePipe, IconComponent, SelectComponent, DateRangeComponent, TableComponent, PaginatorComponent, ChartComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, TitleCasePipe, RouterLink, IconComponent, SelectComponent, DateRangeComponent, TableComponent, PaginatorComponent, ChartComponent],
   template: `
     <h1 class="title">{{ title() }}</h1>
     <p class="crumb">{{ subtitle() }}</p>
@@ -170,7 +170,11 @@ type View = 'dashboard' | 'history';
               @for (t of txns()?.content ?? []; track t.id) {
                 <tr class="clickable" (click)="openTxn(t.id)">
                   <td class="mono">#{{ t.id }}</td>
-                  <td>{{ t.userId }}</td>
+                  <td>
+                    @if (t.userId) {
+                      <a class="ulink" [routerLink]="['/users', t.userId]" (click)="$event.stopPropagation()" title="View user & lifetime value">{{ t.username || ('#' + t.userId) }}</a>
+                    } @else { <span class="muted">—</span> }
+                  </td>
                   <td>{{ t.planCode }}</td>
                   <td><span class="pill" [class]="txnClass(t.type)">{{ t.type | titlecase }}</span></td>
                   <td><b [class.neg]="isNegative(t.type)">{{ isNegative(t.type) ? '−' : '' }}{{ amount(t.grossAmount, t.grossCurrency) }}</b></td>
@@ -242,7 +246,7 @@ type View = 'dashboard' | 'history';
         </div>
 
         <section class="dl">
-          <div class="r"><span>User</span><b>{{ d.userId ?? '—' }}</b></div>
+          <div class="r"><span>User</span><b>@if (d.userId) { <a class="ulink" [routerLink]="['/users', d.userId]" title="View user & lifetime value">{{ d.username || ('#' + d.userId) }}</a> } @else { — }</b></div>
           <div class="r"><span>Product</span><b>{{ d.planCode }} <small class="muted">{{ d.productId }}</small></b></div>
           <div class="r"><span>Platform</span><b>{{ d.platform }}</b></div>
           <div class="r"><span>Country</span><b>{{ d.countryCode ?? '—' }}</b></div>
@@ -325,6 +329,7 @@ type View = 'dashboard' | 'history';
     table.payouts .cnt { display: block; font-size: 11px; color: var(--muted-2); }
     table.payouts tfoot td { border-bottom: none; border-top: 1px solid var(--line); font-weight: 600; }
     tr.clickable { cursor: pointer; } tr.clickable:hover { background: var(--surface-2); }
+    .ulink { color: var(--brand); font-weight: 600; text-decoration: none; } .ulink:hover { text-decoration: underline; }
     .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; animation: fade .15s ease; }
     .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 92vw; background: var(--surface); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; padding: 22px; box-shadow: -12px 0 32px rgba(0,0,0,0.28); animation: slidein .2s ease; }
     @keyframes fade { from { opacity: 0; } } @keyframes slidein { from { transform: translateX(24px); opacity: 0; } }
@@ -546,7 +551,7 @@ export class FinanceComponent implements OnInit {
 
   exportTxns(): void {
     const rows = (this.txns()?.content ?? []).map((t) => ({
-      id: t.id, user: t.userId, product: t.planCode, type: t.type,
+      id: t.id, user: t.username || (t.userId ? '#' + t.userId : ''), product: t.planCode, type: t.type,
       gross: t.grossAmount, currency: t.grossCurrency, country: t.countryCode, when: t.purchasedAt,
     }));
     if (!rows.length) { return; }

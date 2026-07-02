@@ -220,6 +220,7 @@ export interface FinanceRevenueResponse {
 export interface TransactionRow {
   id: number;
   userId: number;
+  username: string | null;
   planCode: string;
   platform: string;
   type: string;
@@ -255,6 +256,7 @@ export interface TxnEventRow {
 export interface TransactionDetail {
   id: number;
   userId: number | null;
+  username: string | null;
   subscriptionId: number | null;
   planCode: string;
   platform: string;

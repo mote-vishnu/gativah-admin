@@ -1,8 +1,10 @@
 import { TitleCasePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { IconComponent } from '../../shared/icon';
+import { InputComponent } from '../../shared/forms';
 import { RolesApi, StaffApi } from '../../core/admin.api';
 import { AuthService } from '../../core/auth.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
@@ -16,13 +18,13 @@ interface FeatureRow {
   tint: string;
   granted: number;
   total: number;
-  actions: { action: string; granted: boolean }[];
+  actions: { action: string; granted: boolean; id: number }[];
 }
 
 @Component({
   selector: 'app-role-detail',
   standalone: true,
-  imports: [TitleCasePipe, RouterLink, IconComponent],
+  imports: [FormsModule, TitleCasePipe, RouterLink, IconComponent, InputComponent],
   template: `
     <a routerLink="/team/roles" class="back">‹ Back to roles</a>
 
@@ -32,15 +34,28 @@ interface FeatureRow {
       <div class="head">
         <div class="hl">
           <span class="hic" [class]="featureTint(primaryFeature())"><lucide-icon name="shield-check" [size]="22" /></span>
-          <div>
-            <h1 class="title">{{ r.name }} @if (r.system) { <span class="sys">system</span> }</h1>
-            <p class="crumb">{{ r.description || 'No description' }}</p>
-          </div>
+          @if (editing()) {
+            <div class="hedit">
+              <ui-input class="ni" [(ngModel)]="editName" [disabled]="r.system"
+                        [hint]="r.system ? 'Built-in role — name is fixed' : ''" placeholder="Role name" />
+              <ui-input class="di" [(ngModel)]="editDesc" placeholder="Description (optional)" />
+            </div>
+          } @else {
+            <div>
+              <h1 class="title">{{ r.name }} @if (r.system) { <span class="sys">system</span> }</h1>
+              <p class="crumb">{{ r.description || 'No description' }}</p>
+            </div>
+          }
         </div>
         <div class="acts">
-          @if (canAdd()) { <button class="btn" (click)="clone(r)"><lucide-icon name="plus-circle" [size]="15" /> Duplicate</button> }
-          @if (canEdit() && !isLocked(r)) { <button class="btn primary" (click)="edit(r)"><lucide-icon name="pencil" [size]="15" /> Edit</button> }
-          @if (canDelete() && !r.system) { <button class="btn danger" (click)="remove(r)"><lucide-icon name="trash-2" [size]="15" /> Delete</button> }
+          @if (editing()) {
+            <button class="btn" (click)="cancelEdit()" [disabled]="busy()">Cancel</button>
+            <button class="btn primary" (click)="saveEdit(r)" [disabled]="busy() || !editName.trim()"><lucide-icon name="check" [size]="15" /> Save changes</button>
+          } @else {
+            @if (canAdd()) { <button class="btn" (click)="clone(r)"><lucide-icon name="plus-circle" [size]="15" /> Duplicate</button> }
+            @if (canEdit() && !isLocked(r)) { <button class="btn primary" (click)="startEdit(r)"><lucide-icon name="pencil" [size]="15" /> Edit</button> }
+            @if (canDelete() && !r.system) { <button class="btn danger" (click)="remove(r)"><lucide-icon name="trash-2" [size]="15" /> Delete</button> }
+          }
         </div>
       </div>
 
@@ -51,15 +66,26 @@ interface FeatureRow {
       </div>
 
       <div class="card" style="margin-top:18px">
-        <div class="card-h"><h3>Capabilities</h3><span class="hint">what this role can do, by feature</span></div>
-        <div class="matrix">
+        <div class="card-h">
+          <h3>Capabilities</h3>
+          <span class="hint">{{ editing() ? 'click actions to grant or revoke' : 'what this role can do, by feature' }}</span>
+        </div>
+        <div class="acards">
           @for (f of matrix(); track f.featureCode) {
-            <div class="mrow" [class.off]="f.granted === 0">
-              <span class="m-ic" [class]="f.tint"><lucide-icon [name]="f.icon" [size]="14" /></span>
-              <div class="m-feat"><b>{{ f.label }}</b><small>{{ f.granted }}/{{ f.total }}</small></div>
-              <div class="m-chips">
-                @for (a of f.actions; track a.action) {
-                  <span class="achip" [class]="a.granted ? actionTint(a.action) : 'no'">{{ a.action | titlecase }}</span>
+            <div class="acard" [class.off]="!editing() && f.granted === 0">
+              <div class="ac-h">
+                <span class="ac-ic"><lucide-icon [name]="f.icon" [size]="15" /></span>
+                <span class="ac-t"><b>{{ f.label }}</b><small>{{ f.granted }} / {{ f.total }} actions</small></span>
+                @if (editing()) {
+                  <button class="ac-all" (click)="toggleFeature(f)">{{ f.granted === f.total ? 'clear' : 'all' }}</button>
+                }
+              </div>
+              <div class="ac-actions">
+                @for (a of f.actions; track a.id) {
+                  <button type="button" class="apill" [class]="a.granted ? actionTint(a.action) : 'no'"
+                          [class.editable]="editing()" [disabled]="!editing()" (click)="togglePerm(a.id)">
+                    <i class="dot"></i>{{ a.action | titlecase }}
+                  </button>
                 }
               </div>
             </div>
@@ -89,7 +115,8 @@ interface FeatureRow {
     .back { display: inline-block; color: var(--muted); font-size: 13px; margin-bottom: 16px; }
     .back:hover { color: var(--ink); }
     .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-    .hl { display: flex; align-items: center; gap: 14px; }
+    .hl { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+    .hedit { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; max-width: 480px; }
     .hic { width: 46px; height: 46px; flex: 0 0 auto; border-radius: 13px; display: grid; place-items: center; box-shadow: var(--shadow-sm); }
     .title { font-family: var(--sans); font-weight: 800; font-size: 22px; margin: 0 0 3px; letter-spacing: -0.02em; }
     .crumb { color: var(--muted-2); font-size: 12.5px; margin: 0; }
@@ -99,19 +126,26 @@ interface FeatureRow {
     .btn.danger { color: var(--rose); } .btn.danger:hover { border-color: var(--rose); }
     .kpi .val small { font-size: 15px; color: var(--muted-2); font-weight: 600; }
 
-    .matrix { display: flex; flex-direction: column; }
-    .mrow { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
-    .mrow:last-child { border-bottom: 0; }
-    .mrow.off { opacity: 0.5; }
-    .m-ic { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; display: grid; place-items: center; box-shadow: var(--shadow-sm); }
-    .m-feat { width: 160px; flex: 0 0 auto; } .m-feat b { font-size: 13px; } .m-feat small { display: block; font-family: var(--mono); font-size: 10px; color: var(--muted-2); margin-top: 2px; }
-    .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .achip { font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
-    .achip.no { opacity: 0.4; text-decoration: line-through; }
-    .achip.add { color: var(--green); border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
-    .achip.edit { color: var(--amber); border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.08); }
-    .achip.del { color: var(--rose); border-color: rgba(244,63,94,0.3); background: rgba(244,63,94,0.08); }
-    .achip.view { color: var(--cyan); border-color: rgba(34,211,238,0.3); background: rgba(34,211,238,0.08); }
+    .acards { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 12px; }
+    .acard { border: 1px solid var(--line); border-radius: 13px; padding: 13px 14px; background: var(--surface-2); transition: 0.15s var(--ease); }
+    .acard:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+    .acard.off { opacity: 0.55; }
+    .ac-h { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .ac-ic { width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px; display: grid; place-items: center; color: var(--muted); background: var(--surface-3); }
+    .ac-t { min-width: 0; flex: 1; } .ac-t b { display: block; font-size: 13px; letter-spacing: -0.01em; }
+    .ac-t small { font-size: 10px; color: var(--muted-2); }
+    .ac-all { flex: 0 0 auto; background: none; border: 1px solid var(--line); border-radius: 999px; font: inherit; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 2px 9px; cursor: pointer; transition: 0.12s var(--ease); }
+    .ac-all:hover { color: var(--brand); border-color: var(--brand-line); }
+    .ac-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .apill { display: inline-flex; align-items: center; gap: 5px; font-family: inherit; font-size: 10.5px; font-weight: 600; padding: 3px 9px 3px 8px; border-radius: 999px; color: var(--muted); background: color-mix(in srgb, currentColor 11%, transparent); border: 1px solid color-mix(in srgb, currentColor 22%, transparent); cursor: default; transition: 0.12s var(--ease); }
+    .apill:disabled { opacity: 1; }
+    .apill.editable { cursor: pointer; }
+    .apill.editable:hover { background: color-mix(in srgb, currentColor 20%, transparent); border-color: color-mix(in srgb, currentColor 40%, transparent); }
+    .apill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .apill.view { color: var(--cyan); } .apill.add { color: var(--green); } .apill.edit { color: var(--amber); } .apill.del { color: var(--rose); }
+    .apill.no { color: var(--muted-2); background: transparent; border-style: dashed; opacity: 0.6; }
+    .apill.no.editable:hover { opacity: 1; background: color-mix(in srgb, currentColor 14%, transparent); }
+    .apill.no .dot { opacity: 0.35; }
 
     .mem { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
     .mitem { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); text-decoration: none; color: inherit; }
@@ -134,15 +168,28 @@ export class RoleDetailComponent implements OnInit {
   readonly members = signal<StaffRow[]>([]);
   readonly error = signal<string | null>(null);
 
+  // inline edit state
+  readonly editing = signal(false);
+  readonly editPerms = signal<Set<number>>(new Set());
+  readonly busy = signal(false);
+  editName = '';
+  editDesc = '';
+
   readonly canAdd = computed(() => this.auth.can('ROLES:ADD'));
   readonly canEdit = computed(() => this.auth.can('ROLES:EDIT'));
   readonly canDelete = computed(() => this.auth.can('ROLES:DELETE'));
   readonly totalPerms = computed(() => this.catalog().reduce((n, f) => n + f.permissions.length, 0));
 
   readonly matrix = computed<FeatureRow[]>(() => {
-    const granted = new Set(this.role()?.permissions ?? []);
+    const editing = this.editing();
+    const grantedCodes = new Set(this.role()?.permissions ?? []);
+    const editSet = this.editPerms();
     return this.catalog().map((f) => {
-      const actions = f.permissions.map((p) => ({ action: p.action, granted: granted.has(p.code) }));
+      const actions = f.permissions.map((p) => ({
+        action: p.action,
+        id: p.id,
+        granted: editing ? editSet.has(p.id) : grantedCodes.has(p.code),
+      }));
       return {
         featureCode: f.featureCode,
         label: f.label,
@@ -154,7 +201,7 @@ export class RoleDetailComponent implements OnInit {
       };
     });
   });
-  readonly grantedTotal = computed(() => this.role()?.permissions.length ?? 0);
+  readonly grantedTotal = computed(() => this.matrix().reduce((n, f) => n + f.granted, 0));
   readonly activeFeatureCount = computed(() => this.matrix().filter((f) => f.granted > 0).length);
   readonly primaryFeature = computed(() => this.matrix().find((f) => f.granted > 0)?.featureCode ?? '');
 
@@ -177,8 +224,42 @@ export class RoleDetailComponent implements OnInit {
 
   isLocked(r: RoleResponse): boolean { return r.name === 'SUPER_ADMIN'; }
 
-  edit(r: RoleResponse): void {
-    void this.router.navigate(['/team/roles'], { queryParams: { edit: r.id } });
+  startEdit(r: RoleResponse): void {
+    this.editName = r.name;
+    this.editDesc = r.description ?? '';
+    this.editPerms.set(new Set(r.permissionIds));
+    this.editing.set(true);
+  }
+
+  cancelEdit(): void { this.editing.set(false); }
+
+  togglePerm(id: number): void {
+    if (!this.editing()) { return; }
+    const next = new Set(this.editPerms());
+    if (next.has(id)) { next.delete(id); } else { next.add(id); }
+    this.editPerms.set(next);
+  }
+
+  /** Grant all of a feature's actions, or clear them all if already fully granted. */
+  toggleFeature(f: FeatureRow): void {
+    const next = new Set(this.editPerms());
+    const grantAll = f.granted < f.total;
+    for (const a of f.actions) {
+      if (grantAll) { next.add(a.id); } else { next.delete(a.id); }
+    }
+    this.editPerms.set(next);
+  }
+
+  saveEdit(r: RoleResponse): void {
+    this.busy.set(true);
+    this.api.update(r.id, {
+      name: r.system ? undefined : this.editName.trim(),
+      description: this.editDesc.trim() || null,
+      permissionIds: [...this.editPerms()],
+    }).subscribe({
+      next: (updated) => { this.busy.set(false); this.editing.set(false); this.role.set(updated); this.toast.success('Role updated.'); },
+      error: () => { this.busy.set(false); this.toast.error('Save failed (duplicate name?).'); },
+    });
   }
 
   clone(r: RoleResponse): void {

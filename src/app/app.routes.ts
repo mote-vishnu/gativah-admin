@@ -157,6 +157,11 @@ export const routes: Routes = [
             loadComponent: () => import('./features/staff/staff').then((m) => m.StaffComponent),
           },
           {
+            path: 'staff/:id',
+            canActivate: [permissionGuard('STAFF:VIEW')],
+            loadComponent: () => import('./features/staff/staff-detail').then((m) => m.StaffDetailComponent),
+          },
+          {
             path: 'roles',
             canActivate: [permissionGuard('ROLES:VIEW')],
             loadComponent: () => import('./features/roles/roles').then((m) => m.RolesComponent),

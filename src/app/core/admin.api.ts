@@ -65,6 +65,10 @@ export class StaffApi {
     return this.http.get<Page<StaffRow>>(this.base, { params });
   }
 
+  get(id: number): Observable<StaffRow> {
+    return this.http.get<StaffRow>(`${this.base}/${id}`);
+  }
+
   invite(req: InviteStaffRequest): Observable<StaffRow> {
     return this.http.post<StaffRow>(this.base, req);
   }
